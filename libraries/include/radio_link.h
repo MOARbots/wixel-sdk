@@ -99,6 +99,13 @@ extern volatile BIT radioLinkResetPacketReceived;
  *  any other functions in the library. */
 void radioLinkInit(void);
 
+/*! Empties the radio_link TX queue. Effectively, this erases all data that was in the TX buffer for transmission. */
+void radioLinkTxQueueReset(void);
+
+/*! Changes the channel of (only) this radio to the specified channel. WSA state is reset and the radio link requires re-establishment
+ *  before communication on the new channel can be received/transmitted. */
+void radioLinkChangeChannel(uint8);
+
 /*! \return The number of radio TX packet buffers that are currently free
  * (available to hold data). */
 uint8 radioLinkTxAvailable(void);

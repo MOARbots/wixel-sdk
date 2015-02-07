@@ -11,13 +11,20 @@
  *  ACKs.
  */
 
+/*
+Modified by Geoff Nagy on July-20-2012.
+Changed to allow the dynamic changing of the radio link channel, as well as a supporting
+function to clear the TX queue.
+*/
+
 #include <radio_link.h>
+#include <radio_com.h>
 #include <radio_registers.h>
 #include <random.h>
 
 /* PARAMETERS *****************************************************************/
 
-int32 CODE param_radio_channel = 128;
+int32 CODE param_radio_channel = 0; //Changed default to channel 0. -shira
 
 /* PACKET VARIABLES AND DEFINES ***********************************************/
 
@@ -38,6 +45,28 @@ int32 CODE param_radio_channel = 128;
 #define PACKET_TYPE_NAK   (1 << 6) // A NAK packet (with optional data)
 #define PACKET_TYPE_ACK   (2 << 6) // An ACK packet (with optional data)
 #define PACKET_TYPE_RESET (3 << 6) // A Reset packet (the next packet transmitted by the sender of this packet will have a sequence number of 0)
+
+/* define our strobes if they haven't already been defined */
+
+#ifndef SFSTXON
+#define SFSTXON	0
+#endif
+
+#ifndef SCAL
+#define SCAL    1
+#endif
+
+#ifndef SRX
+#define SRX     2
+#endif
+
+#ifndef STX
+#define STX     3
+#endif
+
+#ifndef SIDLE
+#define SIDLE   4
+#endif
 
 /*  rxPackets:
  *  We need to be prepared at all times to receive a full packet from the other party,
@@ -95,7 +124,6 @@ static volatile BIT rxSequenceBit;
 // send.
 static volatile BIT txSequenceBit;
 
-
 /* GENERAL VARIABLES **********************************************************/
 
 volatile BIT radioLinkActivityOccurred;
@@ -107,7 +135,6 @@ void radioLinkInit()
     randomSeedFromSerialNumber();
 
     rxSequenceBit = 1;
-
     txSequenceBit = 0;
 
     PKTLEN = RADIO_MAX_PACKET_SIZE;
@@ -119,6 +146,46 @@ void radioLinkInit()
     // Start trying to send a reset packet.
     sendingReset = 1;
     radioMacStrobe();
+}
+
+void radioLinkTxQueueReset()
+{
+	radioLinkTxInterruptIndex = radioLinkTxMainLoopIndex;
+}
+
+void radioLinkChangeChannel(uint8 channel)
+{
+
+	// ensure that the radio is in an idle state
+	do
+	{
+		RFST = SIDLE;
+	}
+	while((MARCSTATE & 0x1f) != 1);
+	
+	// force the radio to recalibrate to the given frequency
+	CHANNR = channel;
+	
+	do
+	{
+		RFST = STX;
+	}
+	while((MARCSTATE & 0x1f) != 0x13);
+
+	// reset the sequence bits
+	acceptAnySequenceBit = 1;
+    rxSequenceBit = 1;
+    txSequenceBit = 0;
+    
+    // reset TX and RX trackers
+	radioLinkRxInterruptIndex = radioLinkRxMainLoopIndex;
+	radioLinkTxInterruptIndex = radioLinkTxMainLoopIndex;
+	radioLinkTxCurrentPacketTries = 0;
+
+	// start trying to send a reset packet.
+    sendingReset = 1;
+    radioMacStrobe();
+
 }
 
 // Returns a random delay in units of 0.922 ms (the same units of radioMacRx).
@@ -291,6 +358,7 @@ void radioMacEventHandler(uint8 event) // called by the MAC in an ISR
 
         if ((currentRxPacket[RADIO_LINK_PACKET_TYPE_OFFSET] & PACKET_TYPE_MASK) == PACKET_TYPE_RESET)
         {
+        
             // The other Wixel sent a Reset packet, which means the next packet it sends will have a sequence bit of 0.
             // So this Wixel should set its "previously received" sequence bit to 1 so it expects a 0 next.
             rxSequenceBit = 1;
