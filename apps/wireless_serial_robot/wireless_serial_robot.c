@@ -419,7 +419,12 @@ void main()
     // Set up P1_5 to be the radio's TX debug signal.
     P1DIR |= (1<<5);
     IOCFG0 = 0b011011; // P1_5 = PA_PD (TX mode)
-
+	
+	setDigitalOutput(0,PULLED);
+	setDigitalOutput(1,PULLED);
+	setDigitalOutput(2,PULLED);
+	setDigitalOutput(3,PULLED);
+	setDigitalOutput(15,PULLED);
 
     timer3Init(); //Timer 3 will now control the Enable A and Enable B pins on the motor driver
     setDigitalOutput(0,LOW); // Initializing A1, A2, B1, B2 to LOW so the robot doesn't move
@@ -432,7 +437,7 @@ void main()
     {
         updateSerialMode();
         boardService();
-        updateLeds();
+        updateLeds();  
         errorService();
 
         if (param_serial_mode != SERIAL_MODE_USB_UART)
