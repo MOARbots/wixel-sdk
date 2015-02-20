@@ -22,7 +22,7 @@
 #define SERIAL_MODE_USB_UART    3
 
 //a constant PWM value for the very simplistic robot control program in this example
-uint8 CODE param_pwm_value = 255;
+uint8 CODE param_pwm_value = 127;
 
 int32 CODE param_serial_mode = SERIAL_MODE_AUTO;
 
@@ -312,45 +312,62 @@ void uartToRadioService()
     
     uint8 mybyte; //for the incoming byte storage
 
+    uint8 static set_pwm = 0; //bool to set pwm
+    // uint8 new_pwm = param_pwm_value; //for the pwm to set
+
+    // T3CC0 = T3CC1 = param_pwm_value;
+
+    uint8 static pwm = 127;
+
     while(radioComRxAvailable()){
-	mybyte = radioComRxReceiveByte();
-	switch(mybyte) {
-            case 0x77:
-    		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
-    		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
-    		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
-    		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
-		T3CC0 = T3CC1 = param_pwm_value;
-		break; //'w'
-            case 0x61:
-    		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
-    		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
-    		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
-    		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
-		T3CC0 = T3CC1 = param_pwm_value;	
-		break; //'a'
-            case 0x73:
-    		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
-    		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
-    		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
-    		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
-		T3CC0 = T3CC1 = param_pwm_value;
-		break; //'s'
-            case 0x64:
-    		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
-    		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
-    		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
-    		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
-		T3CC0 = T3CC1 = param_pwm_value;	
-		break; //'d'
-            case 0x20:
-    		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
-    		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
-    		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
-    		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
-		T3CC0 = T3CC1 = 0;
-		break; //Space
+    	mybyte = radioComRxReceiveByte();
+
+        if (set_pwm) {
+            pwm = mybyte;
+            T3CC0 = T3CC1 = pwm;
+            
+            set_pwm = 0;
+
+            continue;
         }
+
+        T3CC0 = T3CC1 = pwm;
+        
+    	switch(mybyte) {
+            case 0x70:
+                set_pwm = 1;
+            break;
+            case 0x77:
+        		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
+    		break; //'w'
+            case 0x61:
+        		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
+    		break; //'a'
+            case 0x73:
+        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
+    		break; //'s'
+            case 0x64:
+        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
+    		break; //'d'
+            case 0x20:
+        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
+    		break; //Space
+            }
     }
 
     // Control Signals.
