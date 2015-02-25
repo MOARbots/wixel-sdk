@@ -21,17 +21,14 @@
 #define SERIAL_MODE_UART_RADIO  2
 #define SERIAL_MODE_USB_UART    3
 
-//a constant PWM value for the very simplistic robot control program in this example
-uint8 CODE param_pwm_value = 127;
-
 int32 CODE param_serial_mode = SERIAL_MODE_AUTO;
 
 int32 CODE param_baud_rate = 9600;
 
-int32 CODE param_nDTR_pin = 10;
-int32 CODE param_nRTS_pin = 11;
-int32 CODE param_nDSR_pin = 12;
-int32 CODE param_nCD_pin = 13;
+int32 CODE param_nDTR_pin = -1;
+int32 CODE param_nRTS_pin = -1;
+int32 CODE param_nDSR_pin = -1;
+int32 CODE param_nCD_pin = -1;
 
 int32 CODE param_DTR_pin = -1;
 int32 CODE param_RTS_pin = -1;
@@ -312,12 +309,11 @@ void uartToRadioService()
     
     uint8 mybyte; //for the incoming byte storage
 
-    uint8 static set_pwm = 0; //bool to set pwm
-    // uint8 new_pwm = param_pwm_value; //for the pwm to set
+    uint8 static set_pwm = 0; //flag that we saw the set pwm symbol 'p'
 
-    // T3CC0 = T3CC1 = param_pwm_value;
+    // T3CC0 = T3CC1
 
-    uint8 static pwm = 127;
+    uint8 static pwm;
 
     while(radioComRxAvailable()){
     	mybyte = radioComRxReceiveByte();
@@ -325,23 +321,20 @@ void uartToRadioService()
         if (set_pwm) {
             pwm = mybyte;
             T3CC0 = T3CC1 = pwm;
-            
             set_pwm = 0;
 
             continue;
         }
 
-        T3CC0 = T3CC1 = pwm;
-        
     	switch(mybyte) {
             case 0x70:
                 set_pwm = 1;
             break;
             case 0x77:
-        		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
-        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
-        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
-        		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
+        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
     		break; //'w'
             case 0x61:
         		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
@@ -350,10 +343,10 @@ void uartToRadioService()
         		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
     		break; //'a'
             case 0x73:
-        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
-        		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
-        		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
-        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
+        		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
     		break; //'s'
             case 0x64:
         		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
@@ -366,7 +359,7 @@ void uartToRadioService()
         		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
         		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
         		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
-    		break; //Space
+    		break; //Space executes a hard brake
             }
     }
 
@@ -427,11 +420,13 @@ void main()
 	setDigitalOutput(15,PULLED);
 
     timer3Init(); //Timer 3 will now control the Enable A and Enable B pins on the motor driver
-    setDigitalOutput(0,LOW); // Initializing A1, A2, B1, B2 to LOW so the robot doesn't move
+    setDigitalOutput(0,LOW); // Initializing A1, A2, B1, B2 to LOW so the robot doesn't move, but not brake mode
     setDigitalOutput(1,LOW);
     setDigitalOutput(2,LOW);
     setDigitalOutput(3,LOW);
     setDigitalOutput(15,HIGH); //Standby mode: Motor driver turns off when LOW, on when HIGH
+    T3CC0 = T3CC1 = 255; //this means we init PWM val to 255 unless otherwise specified
+
 
     while(1)
     {
