@@ -8,6 +8,7 @@
  */
 
 #include "platform_util.h"
+
 /*************************************
  * Container: Queue
  *************************************/
@@ -47,8 +48,5 @@ typedef struct Queue
 
 int InitQueue(Queue* queue);
 int LinkQueue(Queue* queue, QTuple* tuple); 
-int QPush(QTuple* p);
-int QPushForce(QTuple* p);
-int QPop(QTuple* p);
 
 #endif
