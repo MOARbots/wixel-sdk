@@ -1,35 +1,18 @@
 #ifndef MOAROBOT_QUEUE_H
 #define MOAROBOT_QUEUE_H
+
 /** A queue implemntation for Wixel. 
+ *
  *  Author: Lun-Cheng Chu
  *   Mail: lc@cs.wisc.edu
  */
 
-#include<stdio.h>
-
-//
-// Remove the line "#define WIXEL"
-// if you want to test code in standard c environment.
-// The following macros help debugging in standard c environment.
-// TODO: custimize a cross-platform Makefile to pass these flags
-//
-#define WIXEL
-
-#ifdef WIXEL
-  #include<wixel.h>
-  #define MY_PRINT(str) 
-  #define MY_PRINT2(str, arg) 
-#else
-  #define XDATA
-  #define MY_PRINT(str) printf(str);
-  #define MY_PRINT2(str, arg) printf(str, arg);
-#endif
-
+#include "platform_util.h"
 /*************************************
  * Container: Queue
  *************************************/
-#define ContSize 64
-#define TupleSize 5 
+#define QContSize 64
+#define QTupleSize 5 
 
 // forward decl.
 struct Queue;
@@ -37,11 +20,11 @@ struct Queue;
 //
 // FiveBytes Structure
 //
-typedef struct Tuple
+typedef struct QTuple
 {
   struct Queue* caller; 
-  char bytes[TupleSize];
-} Tuple;
+  char bytes[QTupleSize];
+} QTuple;
 
 // 
 // Container: Queue 
@@ -51,21 +34,21 @@ typedef struct Tuple
 typedef struct Queue
 {
   // member data
-  Tuple data[ContSize]; // we can only use ContSize-1 slots
+  QTuple data[QContSize]; // we can only use ContSize-1 slots
   int head; // first elelment position.
   int tail; // last element position.
 
   // member function declariation
-  int (*Push)(Tuple* p);
-  int (*Pop)(Tuple* p);
-  int (*PushForce)(Tuple* p);
+  int (*Push)(QTuple* p);
+  int (*Pop)(QTuple* p);
+  int (*PushForce)(QTuple* p);
 } Queue;
 
 
 int InitQueue(Queue* queue);
-int LinkQueueTuple(Queue* queue, Tuple* tuple); 
-int Push(Tuple* p);
-int PushForce(Tuple* p);
-int Pop(Tuple* p);
+int LinkQueue(Queue* queue, QTuple* tuple); 
+int QPush(QTuple* p);
+int QPushForce(QTuple* p);
+int QPop(QTuple* p);
 
 #endif

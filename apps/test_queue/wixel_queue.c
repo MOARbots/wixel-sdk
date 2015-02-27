@@ -5,28 +5,28 @@
 int TestFunction1()
 {
   // the queue is a container to store Tuple data
-  // you can redefine the TupleSize to change the max size that a Tuple can store. 
+  // you can redefine the QTupleSize to change the max size that a Tuple can store. 
   // here, for example the size is 5.
   // Note: the "XDATA" indicate that Queue's data is in external ram, 
   //       which is larger, but slower. If you remove XDATA, then make ContSize smaller.
   // ref: http://pololu.github.io/wixel-sdk/cc2511__types_8h.html
   XDATA Queue queue;
   // we will push two fivebytes to queue
-  Tuple fivebytes;
+  QTuple fivebytes;
   // then pop them out to pop_result 
-  Tuple pop_result;
+  QTuple pop_result;
 
   int i = 0;
 
   //*****************************************************************
   //*** Remember to call init and link fuction before using Queue ***
-  //***  we have to link Queue and Tuple to use member function.  ***
+  //***  we have to link Queue and QTuple to use member function.  ***
   //*****************************************************************
   InitQueue(&queue);
-  LinkQueueTuple(&queue, &fivebytes);
-  LinkQueueTuple(&queue, &pop_result);
+  LinkQueue(&queue, &fivebytes);
+  LinkQueue(&queue, &pop_result);
 
-  for (i = 0; i < ContSize; i++) {
+  for (i = 0; i < QContSize; i++) {
     // test push "hello" which is five byte
     fivebytes.bytes[0] = 'h';
     fivebytes.bytes[1] = 'e';
@@ -54,7 +54,7 @@ int TestFunction1()
 
   // test pop out all data
   while(queue.Pop(&pop_result)) {
-    for (i = 0; i < TupleSize; ++i) {
+    for (i = 0; i < QTupleSize; ++i) {
      MY_PRINT2("%c", pop_result.bytes[i]);
     }
     MY_PRINT("\n");
@@ -69,29 +69,29 @@ int TestFunction1()
 //
 int TestFunction2()
 {
-  // the queue is a container to store Tuple data
-  // you can redefine the TupleSize to change the max size that a Tuple can store. 
+  // the queue is a container to store QTuple data
+  // you can redefine the QTupleSize to change the max size that a QTuple can store. 
   // here, for example the size is 5.
   XDATA Queue queue1;
   XDATA Queue queue2;
   // we will push two fivebytes to queue
-  Tuple fivebytes1, fivebytes2;
+  QTuple fivebytes1, fivebytes2;
   // then pop them out to pop_result 
-  Tuple pop_result1, pop_result2;
+  QTuple pop_result1, pop_result2;
 
   int i = 0;
 
   //*****************************************************************
   //*** Remember to call init and link fuction before using Queue ***
-  //***  we have to link Queue and Tuple to use member function.  ***
+  //***  we have to link Queue and QTuple to use member function.  ***
   //*****************************************************************
   InitQueue(&queue1);
-  LinkQueueTuple(&queue1, &fivebytes1);
-  LinkQueueTuple(&queue1, &pop_result1);
+  LinkQueue(&queue1, &fivebytes1);
+  LinkQueue(&queue1, &pop_result1);
 
   InitQueue(&queue2);
-  LinkQueueTuple(&queue2, &fivebytes2);
-  LinkQueueTuple(&queue2, &pop_result2);
+  LinkQueue(&queue2, &fivebytes2);
+  LinkQueue(&queue2, &pop_result2);
 
   // test: push "hello" which is five byte
   fivebytes1.bytes[0] = 'h';
@@ -111,7 +111,7 @@ int TestFunction2()
 
   // test: queue1 pop out all data
   while(queue1.Pop(&pop_result1)) {
-    for (i = 0; i < TupleSize; ++i) {
+    for (i = 0; i < QTupleSize; ++i) {
       MY_PRINT2("%c", pop_result1.bytes[i]);
     }
     MY_PRINT("\n");
@@ -119,7 +119,7 @@ int TestFunction2()
 
   // test: queue2 pop out all data
   while(queue2.Pop(&pop_result2)) {
-    for (i = 0; i < TupleSize; ++i) {
+    for (i = 0; i < QTupleSize; ++i) {
      MY_PRINT2("%c", pop_result2.bytes[i]);
     }
     MY_PRINT("\n");
@@ -133,24 +133,24 @@ int TestFunction2()
 //
 int TestFunction3()
 {
-  // the queue is a container to store Tuple data
-  // you can redefine the TupleSize to change the max size that a Tuple can store. 
+  // the queue is a container to store QTuple data
+  // you can redefine the QTupleSize to change the max size that a QTuple can store. 
   // here, for example the size is 5.
   XDATA Queue queue1;
   // we will push two fivebytes to queue
-  Tuple fivebytes1;
+  QTuple fivebytes1;
   // then pop them out to pop_result 
-  Tuple pop_result1;
+  QTuple pop_result1;
 
   int i = 0;
 
   //*****************************************************************
   //*** Remember to call init and link fuction before using Queue ***
-  //***  we have to link Queue and Tuple to use member function.  ***
+  //***  we have to link Queue and QTuple to use member function.  ***
   //*****************************************************************
   InitQueue(&queue1);
-  LinkQueueTuple(&queue1, &fivebytes1);
-  LinkQueueTuple(&queue1, &pop_result1);
+  LinkQueue(&queue1, &fivebytes1);
+  LinkQueue(&queue1, &pop_result1);
 
   // test: push "hello" which is five byte
   fivebytes1.bytes[0] = 'h';
@@ -203,7 +203,7 @@ int TestFunction3()
 
   // test: queue1 pop out all data
   while(queue1.Pop(&pop_result1)) {
-    for (i = 0; i < TupleSize; ++i) {
+    for (i = 0; i < QTupleSize; ++i) {
       MY_PRINT2("%c", pop_result1.bytes[i]);
     }
     MY_PRINT("\n");
@@ -225,7 +225,7 @@ int main()
   TestFunction2();
 
   // Test Force Push data into queue
-  // to see the effect, redefine the ContSize to smaller size, e.g. 4
+  // to see the effect, redefine the QContSize to smaller size, e.g. 4
   MY_PRINT("\nTest3:\n");
   TestFunction3();
   return 0;

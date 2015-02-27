@@ -1,19 +1,27 @@
 #include "queue.h"
+
+/** A queue implemntation for Wixel. 
+ *
+ *  Author: Lun-Cheng Chu
+ *   Mail: lc@cs.wisc.edu
+ */
+
+
 //
 // member funciton: Push 
 // return 1: success, 
 //        0: fail(queue is full)
 //
-int Push(Tuple* p) 
+int QPush(QTuple* p) 
 {
   int i = 0;
   int next = 0;
   Queue* queue = (0==p ? 0: p->caller);
   if (0!=queue) {
-    next = (queue->tail+1)%ContSize;
+    next = (queue->tail+1)%QContSize;
     if (next != queue->head) {
       // copy p to queue
-      for (i = 0; i < TupleSize; ++i) {
+      for (i = 0; i < QTupleSize; ++i) {
         queue->data[next].bytes[i] = p->bytes[i];
       } 
       queue->tail = next;
@@ -27,26 +35,26 @@ int Push(Tuple* p)
 // Force push date into the queue.
 // i.e. if the queue is full, then the new pushed elelment will overide oldest element.
 //
-int PushForce(Tuple* p) 
+int QPushForce(QTuple* p) 
 {
   int i = 0;
   int next = 0;
   Queue* queue = (0==p ? 0: p->caller);
   if (0!=queue) {
-    next = (queue->tail+1)%ContSize;
+    next = (queue->tail+1)%QContSize;
     if (next != queue->head) {
       // copy p to queue
-      for (i = 0; i < TupleSize; ++i) {
+      for (i = 0; i < QTupleSize; ++i) {
         queue->data[next].bytes[i] = p->bytes[i];
       } 
       queue->tail = next;
       return 1;
     } else {
-      for (i = 0; i < TupleSize; ++i) {
+      for (i = 0; i < QTupleSize; ++i) {
         queue->data[next].bytes[i] = p->bytes[i];
       } 
       queue->tail = next;
-      queue->head = (queue->head+1)%ContSize;;
+      queue->head = (queue->head+1)%QContSize;;
       return 1;
     }
   }
@@ -60,14 +68,14 @@ int PushForce(Tuple* p)
 // return 1: success, 
 //        0: fail(queue is already empty)
 //
-int Pop(Tuple* p) 
+int QPop(QTuple* p) 
 {
   int i = 0;
   Queue* queue = 0==p ? 0 : p->caller;
   if (0!=queue && queue->head!=queue->tail) {
-    queue->head = (queue->head+1)%ContSize;
+    queue->head = (queue->head+1)%QContSize;
     // copy queue to p
-    for (i = 0; i < TupleSize; ++i) {
+    for (i = 0; i < QTupleSize; ++i) {
       p->bytes[i] = queue->data[queue->head].bytes[i];
     }
     return 1;
@@ -85,9 +93,9 @@ int InitQueue(Queue* queue)
   if (0!=queue) {
     queue->head = 0;
     queue->tail = 0;
-    queue->Push = Push;
-    queue->PushForce = PushForce;
-    queue->Pop = Pop;
+    queue->Push = QPush;
+    queue->PushForce = QPushForce;
+    queue->Pop = QPop;
     return 1;
   }
   return 0;
@@ -97,11 +105,11 @@ int InitQueue(Queue* queue)
 
 
 //
-// Associate Queue and Tuple. 
+// Associate Queue and QTuple. 
 // return 1: success
 //        0: fail
 //
-int LinkQueueTuple(Queue* queue, Tuple* tuple) 
+int LinkQueue(Queue* queue, QTuple* tuple) 
 {
   if (0!=queue && 0!=tuple) {
     tuple->caller = queue;
