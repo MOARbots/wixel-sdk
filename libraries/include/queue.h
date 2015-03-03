@@ -40,9 +40,9 @@ typedef struct Queue
   int tail; // last element position.
 
   // member function declariation
-  int (*Push)(QTuple* p);
-  int (*Pop)(QTuple* p);
-  int (*PushForce)(QTuple* p);
+  int (*Push)(     QTuple* p) __reentrant;
+  int (*Pop)(      QTuple* p) __reentrant;
+  int (*PushForce)(QTuple* p) __reentrant;
 } Queue;
 
 

@@ -12,7 +12,7 @@
 // return 1: success, 
 //        0: fail(queue is full)
 //
-int QPush(QTuple* p) 
+int QPush(QTuple* p) __reentrant
 {
   int i = 0;
   int next = 0;
@@ -35,7 +35,7 @@ int QPush(QTuple* p)
 // Force push date into the queue.
 // i.e. if the queue is full, then the new pushed elelment will overide oldest element.
 //
-int QPushForce(QTuple* p) 
+int QPushForce(QTuple* p) __reentrant
 {
   int i = 0;
   int next = 0;
@@ -64,11 +64,11 @@ int QPushForce(QTuple* p)
 
 
 //
-// member funciton: Pop
+// member function: Pop
 // return 1: success, 
 //        0: fail(queue is already empty)
 //
-int QPop(QTuple* p) 
+int QPop(QTuple* p) __reentrant
 {
   int i = 0;
   Queue* queue = 0==p ? 0 : p->caller;

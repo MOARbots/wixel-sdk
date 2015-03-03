@@ -5,7 +5,7 @@
 // return 1: success, 
 //        0: fail(stack is full)
 //
-int SPush(STuple* p) {
+int SPush(STuple* p) __reentrant {
   int i = 0;
   Stack* stack = (0==p ? 0:  p->caller);
   if (0!=stack && stack->top_idx < SContSize) {
@@ -20,11 +20,11 @@ int SPush(STuple* p) {
 }
 
 //
-// member funciton: SPop
+// member function: SPop
 // return 1: success, 
 //        0: fail(stack is already empty)
 //
-int SPop(STuple* p) {
+int SPop(STuple* p) __reentrant {
   int i = 0;
   Stack* stack = 0==p ? 0 :  p->caller;
   if (0!=stack && stack->top_idx > 0) {

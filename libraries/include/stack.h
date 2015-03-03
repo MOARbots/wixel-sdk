@@ -36,9 +36,9 @@ typedef struct Stack
   STuple Sdata[SContSize];
   int top_idx; // indicate the available slot in data[]
 
-  // member function declariation
-  int (*Push)(STuple* p);
-  int (*Pop)(STuple* p);
+  // member function declaration
+  int (*Push)(STuple* p) __reentrant;
+  int (*Pop)(STuple* p)  __reentrant;
 } Stack;
 
 
