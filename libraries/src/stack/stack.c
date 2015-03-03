@@ -11,7 +11,7 @@ int SPush(STuple* p) {
   if (0!=stack && stack->top_idx < SContSize) {
     // copy p to stack
     for (i = 0; i < STupleSize; ++i) {
-      stack->data[stack->top_idx].bytes[i] = p->bytes[i];
+      stack->Sdata[stack->top_idx].bytes[i] = p->bytes[i];
     }
     stack->top_idx++;
     return 1;
@@ -31,7 +31,7 @@ int SPop(STuple* p) {
     stack->top_idx--;
     // copy stack to p
     for (i = 0; i < STupleSize; ++i) {
-      p->bytes[i] = stack->data[stack->top_idx].bytes[i];
+      p->bytes[i] = stack->Sdata[stack->top_idx].bytes[i];
     }
     return 1;
   }

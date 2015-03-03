@@ -35,7 +35,7 @@ typedef struct QTuple
 typedef struct Queue
 {
   // member data
-  QTuple data[QContSize]; // we can only use ContSize-1 slots
+  QTuple Qdata[QContSize]; // we can only use ContSize-1 slots
   int head; // first elelment position.
   int tail; // last element position.
 

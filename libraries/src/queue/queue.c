@@ -22,7 +22,7 @@ int QPush(QTuple* p)
     if (next != queue->head) {
       // copy p to queue
       for (i = 0; i < QTupleSize; ++i) {
-        queue->data[next].bytes[i] = p->bytes[i];
+        queue->Qdata[next].bytes[i] = p->bytes[i];
       } 
       queue->tail = next;
       return 1;
@@ -45,13 +45,13 @@ int QPushForce(QTuple* p)
     if (next != queue->head) {
       // copy p to queue
       for (i = 0; i < QTupleSize; ++i) {
-        queue->data[next].bytes[i] = p->bytes[i];
+        queue->Qdata[next].bytes[i] = p->bytes[i];
       } 
       queue->tail = next;
       return 1;
     } else {
       for (i = 0; i < QTupleSize; ++i) {
-        queue->data[next].bytes[i] = p->bytes[i];
+        queue->Qdata[next].bytes[i] = p->bytes[i];
       } 
       queue->tail = next;
       queue->head = (queue->head+1)%QContSize;;
@@ -76,7 +76,7 @@ int QPop(QTuple* p)
     queue->head = (queue->head+1)%QContSize;
     // copy queue to p
     for (i = 0; i < QTupleSize; ++i) {
-      p->bytes[i] = queue->data[queue->head].bytes[i];
+      p->bytes[i] = queue->Qdata[queue->head].bytes[i];
     }
     return 1;
   }

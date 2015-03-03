@@ -33,7 +33,7 @@ typedef struct STuple{
 typedef struct Stack
 {
   // member data
-  STuple data[SContSize];
+  STuple Sdata[SContSize];
   int top_idx; // indicate the available slot in data[]
 
   // member function declariation
