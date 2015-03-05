@@ -151,7 +151,7 @@ void updateLeds()
         errorOccurredRecently = 0;
     }
 
-    LED_RED(errorOccurredRecently || uartRxDisabled);
+    //LED_RED(errorOccurredRecently || uartRxDisabled);
 }
 
 /* Returns the logical values of the input control signal pins.
@@ -294,15 +294,17 @@ void usbToRadioService()
     }
 
     else { //readstate
-	if ( i + 1 >= QTupleSize ) { //packet not yet full
+	if ( i + 1 < QTupleSize ) { //packet not yet full
 	    if (usbComRxAvailable()) { //if byte available
-	    	packet.bytes[i] = usbComRxReceiveByte(); //take it off the receiving buffer
+	    	packet.bytes[i+1] = usbComRxReceiveByte(); //take it off the receiving buffer
 		i = i+1;
 	    }
 	}
 	else { //We filled up one packet
 	    readstate = 0; //return to idle state next loop
-	    //store or process the packet here
+	    i=0;
+	    if (usbComTxAvailable()){ usbComTxSendByte(read1byte(0, 8)); }
+ 	    //store or process the packet here
 	}
     }
 
