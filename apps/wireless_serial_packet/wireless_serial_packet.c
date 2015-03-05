@@ -303,7 +303,7 @@ void usbToRadioService()
 	else { //We filled up one packet
 	    readstate = 0; //return to idle state next loop
 	    i=0;
-	    if (usbComTxAvailable()){ usbComTxSendByte(read1byte(0, 8)); }
+	    if (usbComTxAvailable()){ usbComTxSendByte(read1byte(5, 6)); }
  	    //store or process the packet here
 	}
     }

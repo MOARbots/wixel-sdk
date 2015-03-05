@@ -39,13 +39,12 @@ uint8 read1byte(uint8 pos, uint8 length) {
 		temp = temp & (0xFF >> (8 - length)); //mask any unused MSBs
 		return temp;
 	}
-	else { //spans two bytes within the packet string
+	else { //spans two bytes within the packet string DEBUG THIS -- IT DOESN'T WORK YET
 		uint8 temp1;
 		temp1 = packet.bytes[(pos >> 3)+1]; //the next byte after that
 		temp = temp << (length  - (8 - rel_pos) ); //move over by the number of bits we're going to grab from the next packet string byte
 		temp1 = temp1 >> (16 - length - rel_pos); //align to the right
 		temp = temp & (0xFF >> rel_pos); //mask the unneeded MSBs on temp
-		temp1 = temp1 & (0xFF << (7 - (rel_pos + length -1)%8 ) );//mask the unneeded LSBs on the temp1
 		return (temp | temp1);
 	}
     }
