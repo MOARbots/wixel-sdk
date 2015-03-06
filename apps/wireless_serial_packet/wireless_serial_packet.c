@@ -286,6 +286,8 @@ void usbToRadioService()
 {
 
     uint8 signals;
+    uint16 readbyte;
+    uint8 byteMSB, byteLSB;
 
     if (!readstate) { //the idle state
     	if (usbComRxAvailable()) { //this would change to the radio version later
@@ -303,7 +305,11 @@ void usbToRadioService()
 	else { //We filled up one packet
 	    readstate = 0; //return to idle state next loop
 	    i=0;
-	    if (usbComTxAvailable()){ usbComTxSendByte(read1byte(5, 6)); }
+	    readbyte = read2byte(0,16);
+	    byteMSB = readbyte >> 8;
+	    byteLSB = readbyte;
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); }
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); }
  	    //store or process the packet here
 	}
     }
