@@ -305,11 +305,26 @@ void usbToRadioService()
 	else { //We filled up one packet
 	    readstate = 0; //return to idle state next loop
 	    i=0;
-	    readbyte = read2byte(0,16);
+//	    if (usbComTxAvailable()){ usbComTxSendByte(read1byte(6,5)); } //debug send packet apriltag ID
+
+	    readbyte = read2byte(4,13); //test read2byte in 3 byte spanning case
 	    byteMSB = readbyte >> 8;
 	    byteLSB = readbyte;
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); }
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); }
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); } //debug send MSB Y pos
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); } //debug send MSB X pos
+/*
+	    readbyte = read2byte(21,10);
+	    byteMSB = readbyte >> 8;
+	    byteLSB = readbyte;
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); } //debug send MSB Y pos
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); } //debug send MSB X pos
+	    
+	    readbyte = read2byte(31,9); //didn't fail at 10???
+	    byteMSB = readbyte >> 8;
+	    byteLSB = readbyte;
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); } //debug send MSB Y pos
+	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); } //debug send MSB X pos
+*/
  	    //store or process the packet here
 	}
     }
