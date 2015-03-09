@@ -15,7 +15,8 @@
 #include <uart1.h>
 #include <packet.h>
 #include <queue.h>
-
+#include <string.h>
+#include <stdio.h>
 
 /** Parameters ****************************************************************/
 #define SERIAL_MODE_AUTO        0
@@ -54,8 +55,6 @@ int32 CODE param_framing_error_ms = 0;
 // would not receive notice of those errors.
 BIT uartRxDisabled = 0;
 
-
-
 uint8 DATA currentSerialMode;
 
 BIT framingErrorActive = 0;
@@ -63,7 +62,79 @@ BIT framingErrorActive = 0;
 BIT errorOccurredRecently = 0;
 uint8 lastErrorTime;
 
+// A big buffer for holding a report.  This allows us to print more than
+// 128 bytes at a time to USB.
+uint8 XDATA report[1024];
+
+// The length (in bytes) of the report currently in the report buffer.
+// If zero, then there is no report in the buffer.
+uint16 DATA reportLength = 0;
+
+// The number of bytes of the current report that have already been
+// send to the computer over USB.
+uint16 DATA reportBytesSent = 0;
+
 /** Functions *****************************************************************/
+
+
+// This gets called by puts, printf. The result is sent by sendReport()
+void putchar(char c)
+{
+    report[reportLength] = c;
+    reportLength++;
+}
+
+//This sends data over the radio
+void sendReportRadio()
+{
+
+    uint8 bytesToSend, i;
+
+    // Send the report to radio in chunks.
+    if (reportLength > 0)
+    {
+        bytesToSend = radioComTxAvailable();
+        if (bytesToSend > reportLength - reportBytesSent)
+        {
+            // Iterate through byte by byte, sending the data until the end of the report.
+            for (i=reportBytesSent; i < reportLength; i++  ) {
+	    	radioComTxSendByte(report[i]);
+	    }
+            reportLength = 0;
+        }
+        else //Not enough space on the buffers, send only what will fit
+        {
+	    for (i=reportBytesSent; i < (reportBytesSent+bytesToSend); i++) {
+            	radioComTxSendByte(report[i]);
+	    }
+            reportBytesSent += bytesToSend;
+        }
+    }
+}
+
+//This sends data over the USB
+void sendReportUSB()
+{
+
+    uint8 bytesToSend;
+
+    // Send the report to USB in chunks.
+    if (reportLength > 0)
+    {
+        bytesToSend = usbComTxAvailable();
+        if (bytesToSend > reportLength - reportBytesSent)
+        {
+            // Send the last part of the report.
+            usbComTxSend(report+reportBytesSent, reportLength - reportBytesSent);
+            reportLength = 0;
+        }
+        else
+        {
+            usbComTxSend(report+reportBytesSent, bytesToSend);
+            reportBytesSent += bytesToSend;
+        }
+    }
+}
 
 void timer3Init()
 {
@@ -151,7 +222,7 @@ void updateLeds()
         errorOccurredRecently = 0;
     }
 
-    //LED_RED(errorOccurredRecently || uartRxDisabled);
+    LED_RED(errorOccurredRecently || uartRxDisabled);
 }
 
 /* Returns the logical values of the input control signal pins.
@@ -282,12 +353,14 @@ void updateSerialMode()
     }
 }
 
+//This mode is active when the USB is plugged in only (no battery)
+//Test Streaming Data to USB. Send a sample packet (using a serial term with ability to send hex packets)
+//If the packet is properly formatted (111111 header, 5 bit ID, 10 bit Y pos, 10 bit X pos, 9 bit rotation, total 5 bytes)
+//Then the Wixel will send this back via the USB
 void usbToRadioService()
 {
 
     uint8 signals;
-    uint16 readbyte;
-    uint8 byteMSB, byteLSB;
 
     if (!readstate) { //the idle state
     	if (usbComRxAvailable()) { //this would change to the radio version later
@@ -305,30 +378,16 @@ void usbToRadioService()
 	else { //We filled up one packet
 	    readstate = 0; //return to idle state next loop
 	    i=0;
-//	    if (usbComTxAvailable()){ usbComTxSendByte(read1byte(6,5)); } //debug send packet apriltag ID
-
-	    readbyte = read2byte(4,13); //test read2byte in 3 byte spanning case
-	    byteMSB = readbyte >> 8;
-	    byteLSB = readbyte;
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); } //debug send MSB Y pos
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); } //debug send MSB X pos
-/*
-	    readbyte = read2byte(21,10);
-	    byteMSB = readbyte >> 8;
-	    byteLSB = readbyte;
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); } //debug send MSB Y pos
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); } //debug send MSB X pos
 	    
-	    readbyte = read2byte(31,9); //didn't fail at 10???
-	    byteMSB = readbyte >> 8;
-	    byteLSB = readbyte;
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteMSB); } //debug send MSB Y pos
-	    if (usbComTxAvailable()){ usbComTxSendByte(byteLSB); } //debug send MSB X pos
-*/
- 	    //store or process the packet here
+	    //Store or process the packet. Here we are formatting with printf, which calls putchar, then we call sendReport
+	    printf("ID: %u, ", readID());
+	    printf("Y: %u, ", readY());
+	    printf("X: %u, ", readX());
+	    printf("R: %u", readR());
+	    sendReportUSB();
+
 	}
     }
-
 
 // Control Signals
     radioComTxControlSignals(usbComRxControlSignals() & 3);
@@ -337,8 +396,6 @@ void usbToRadioService()
     signals = radioComRxControlSignals();
     usbComTxControlSignals( ((signals & 1) ? 2 : 0) | ((signals & 2) ? 1 : 0));
 }
-
-
 
 
 void uartToRadioService()
@@ -397,11 +454,11 @@ void main()
     P1DIR |= (1<<5);
     IOCFG0 = 0b011011; // P1_5 = PA_PD (TX mode)
 	
-	setDigitalOutput(0,PULLED);
-	setDigitalOutput(1,PULLED);
-	setDigitalOutput(2,PULLED);
-	setDigitalOutput(3,PULLED);
-	setDigitalOutput(15,PULLED);
+    setDigitalOutput(0,PULLED);
+    setDigitalOutput(1,PULLED);
+    setDigitalOutput(2,PULLED);
+    setDigitalOutput(3,PULLED);
+    setDigitalOutput(15,PULLED);
 
     timer3Init(); //Timer 3 will now control the Enable A and Enable B pins on the motor driver
     setDigitalOutput(0,LOW); // Initializing A1, A2, B1, B2 to LOW so the robot doesn't move, but not brake mode

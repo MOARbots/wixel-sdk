@@ -15,6 +15,13 @@
 
 #include <queue.h>
 
+/*In this section define the start points and lengths
+ * of data in your packet bitstring.
+ * If the packet format changes, you will need to
+ * modify this as well as the wrapper functions
+ * at the bottom of this document. 
+ */
+
 #define ID_START	6
 #define ID_LENGTH	5
 #define Y_START		11
