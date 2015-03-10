@@ -225,48 +225,6 @@ void updateLeds()
     LED_RED(errorOccurredRecently || uartRxDisabled);
 }
 
-/* Returns the logical values of the input control signal pins.
-   Bit 0 is DSR.
-   Bit 1 is CD. */
-uint8 ioRxSignals()
-{
-    uint8 signals = 0;
-
-    if ((param_CD_pin >= 0 && isPinHigh(param_CD_pin)) ||
-            (param_nCD_pin >= 0 && !isPinHigh(param_nCD_pin)))
-    {
-        signals |= 2;
-    }
-
-    if ((param_DSR_pin >= 0 && isPinHigh(param_DSR_pin)) ||
-            (param_nDSR_pin >= 0 && !isPinHigh(param_nDSR_pin)))
-    {
-        signals |= 1;
-    }
-
-    return signals;
-}
-
-/* Sets the logical values of the output control signal pins.
-   This should be called frequently (not just when the values change).
-   Bit 0 is DTR.
-   Bit 1 is RTS. */
-void ioTxSignals(uint8 signals)
-{
-    static uint8 nTrstPulseStartTime;
-    static uint8 lastSignals;
-
-    // Inverted outputs
-    setDigitalOutput(param_nDTR_pin, (signals & ACM_CONTROL_LINE_DTR) ? 0 : 1);
-    setDigitalOutput(param_nRTS_pin, (signals & ACM_CONTROL_LINE_RTS) ? 0 : 1);
-
-    // Non-inverted outputs.
-    setDigitalOutput(param_DTR_pin, (signals & ACM_CONTROL_LINE_DTR) ? 1 : 0);
-    setDigitalOutput(param_RTS_pin, (signals & ACM_CONTROL_LINE_RTS) ? 1 : 0);
-
-    lastSignals = signals;
-}
-
 void errorOccurred()
 {
     lastErrorTime = (uint8)getMs();
@@ -354,24 +312,19 @@ void updateSerialMode()
 }
 
 //This mode is active when the USB is plugged in only (no battery)
-//Test Streaming Data to USB. Send a sample packet (using a serial term with ability to send hex packets)
+//Test Streaming Data to USB. Data is received over the radio.
 //If the packet is properly formatted (111111 header, 5 bit ID, 10 bit Y pos, 10 bit X pos, 9 bit rotation, total 5 bytes)
-//Then the Wixel will send this back via the USB
+//Then the Wixel will send this back via the PC it is connected to via USB.
 void usbToRadioService()
 {
-
-    uint8 signals;
-
-    if (!readstate) { //the idle state
-    	if (usbComRxAvailable()) { //this would change to the radio version later
-   	    checkHeader(usbComRxReceiveByte()); //this would be radio version later. this changes readstate
-	}
+    if (!readstate) { //the idle state	
+	if (radioComRxAvailable()) { checkHeader( radioComRxReceiveByte() ); }
     }
 
     else { //readstate
 	if ( i + 1 < QTupleSize ) { //packet not yet full
-	    if (usbComRxAvailable()) { //if byte available
-	    	packet.bytes[i+1] = usbComRxReceiveByte(); //take it off the receiving buffer
+	    if (radioComRxAvailable()) { //if byte available
+	    	packet.bytes[i+1] = radioComRxReceiveByte(); //take it off the receiving buffer
 		i = i+1;
 	    }
 	}
@@ -384,17 +337,10 @@ void usbToRadioService()
 	    printf("Y: %u, ", readY());
 	    printf("X: %u, ", readX());
 	    printf("R: %u", readR());
+	    putchar('\r');
 	    sendReportUSB();
-
 	}
     }
-
-// Control Signals
-    radioComTxControlSignals(usbComRxControlSignals() & 3);
-
-    // Need to switch bits 0 and 1 so that DTR pairs up with DSR.
-    signals = radioComRxControlSignals();
-    usbComTxControlSignals( ((signals & 1) ? 2 : 0) | ((signals & 2) ? 1 : 0));
 }
 
 
@@ -403,15 +349,10 @@ void uartToRadioService()
     //This piece of code controls the robot.
     //This code operates only if USB power is not present (battery power)
 
-
-    // Control Signals.
-    ioTxSignals(radioComRxControlSignals());
-    radioComTxControlSignals(ioRxSignals());
 }
 
 void usbToUartService()
 {
-    uint8 signals;
 
     // Data
     while(usbComRxAvailable() && uart1TxAvailable())
@@ -424,20 +365,11 @@ void usbToUartService()
         usbComTxSendByte(uart1RxReceiveByte());
     }
 
-    ioTxSignals(usbComRxControlSignals());
-
-    // Need to switch bits 0 and 1 so that DTR pairs up with DSR.
-    signals = ioRxSignals();
-    usbComTxControlSignals( ((signals & 1) ? 2 : 0) | ((signals & 2) ? 1 : 0));
-
-    // TODO: report framing, parity, and overrun errors to the USB host here
 }
 
 void main()
 {
     systemInit();
-
-    ioTxSignals(0);
 
     usbInit();
 
@@ -449,10 +381,6 @@ void main()
         radioComRxEnforceOrdering = 1;
         radioComInit();
     }
-
-    // Set up P1_5 to be the radio's TX debug signal.
-    P1DIR |= (1<<5);
-    IOCFG0 = 0b011011; // P1_5 = PA_PD (TX mode)
 	
     setDigitalOutput(0,PULLED);
     setDigitalOutput(1,PULLED);
