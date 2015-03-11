@@ -1,5 +1,5 @@
 /* Wireless_serial_robot app: wireless_serial + PWM on timer 3
- * When plugged into battery power (MODE_UART_RADIO) and NOT connect via USB
+ * When plugged into battery power but not USB connected (MODE_UNTETHERED)
  * this app will respond to key presses w,a,s,d, and Space to drive around the robot.
  * Program another Wixel with a wireless_serial app on the same channel
  * Use a serial communication program like PuTTY or screen to send the keypresses
@@ -12,52 +12,22 @@
 #include <usb_com.h>
 #include <radio_com.h>
 #include <radio_link.h>
-#include <uart1.h>
-
 
 /** Parameters ****************************************************************/
-#define SERIAL_MODE_AUTO        0
-#define SERIAL_MODE_USB_RADIO   1
-#define SERIAL_MODE_UART_RADIO  2
-#define SERIAL_MODE_USB_UART    3
+#define MODE_TETHERED	        0
+#define MODE_UNTETHERED		1
 
-int32 CODE param_serial_mode = SERIAL_MODE_AUTO;
+#define A1	0
+#define A2	1
+#define B1	2
+#define B2	3
+#define ENABLE	15
 
 int32 CODE param_baud_rate = 9600;
 
-int32 CODE param_nDTR_pin = -1;
-int32 CODE param_nRTS_pin = -1;
-int32 CODE param_nDSR_pin = -1;
-int32 CODE param_nCD_pin = -1;
-
-int32 CODE param_DTR_pin = -1;
-int32 CODE param_RTS_pin = -1;
-int32 CODE param_DSR_pin = -1;
-int32 CODE param_CD_pin = -1;
-
-// Approximate number of milliseconds to disable UART's receiver for after a
-// framing error is encountered.
-// Valid values are 0-250.
-// A value of 0 disables the feature (the UART's receiver will not be disabled).
-// The actual number of milliseconds that the receiver is disabled for will be
-// between param_framing_error_ms and param_framing_error_ms + 1.
-int32 CODE param_framing_error_ms = 0;
-
 /** Global Variables **********************************************************/
 
-// This bit is 1 if the UART's receiver has been disabled due to a framing error.
-// This bit should be equal to !U1CSR.RE, but we need this variable because we
-// don't want to be reading U1CSR in the main loop, because reading it might
-// cause the FE or ERR bits to be cleared and then the ISR
-// would not receive notice of those errors.
-BIT uartRxDisabled = 0;
-
-uint8 DATA currentSerialMode;
-
-BIT framingErrorActive = 0;
-
-BIT errorOccurredRecently = 0;
-uint8 lastErrorTime;
+uint8 DATA currentMode;
 
 /** Functions *****************************************************************/
 
@@ -97,12 +67,7 @@ void updateLeds()
 
     now = (uint16)getMs();
 
-    if (currentSerialMode == SERIAL_MODE_USB_UART)
-    {
-        // The radio is not being used, so turn off the yellow LED.
-        LED_YELLOW(0);
-    }
-    else if (!radioLinkConnected())
+   if (!radioLinkConnected())
     {
         // We have not connected to another device wirelessly yet, so do a
         // 50% blink with a period of 1024 ms.
@@ -141,147 +106,23 @@ void updateLeds()
     {
         dimYellowLed = 0;
     }
-
-    if ((uint8)(now - lastErrorTime) > 100)
-    {
-        errorOccurredRecently = 0;
-    }
-
-    LED_RED(errorOccurredRecently || uartRxDisabled);
 }
 
-/* Returns the logical values of the input control signal pins.
-   Bit 0 is DSR.
-   Bit 1 is CD. */
-uint8 ioRxSignals()
+
+void updateMode()
 {
-    uint8 signals = 0;
-
-    if ((param_CD_pin >= 0 && isPinHigh(param_CD_pin)) ||
-            (param_nCD_pin >= 0 && !isPinHigh(param_nCD_pin)))
-    {
-        signals |= 2;
-    }
-
-    if ((param_DSR_pin >= 0 && isPinHigh(param_DSR_pin)) ||
-            (param_nDSR_pin >= 0 && !isPinHigh(param_nDSR_pin)))
-    {
-        signals |= 1;
-    }
-
-    return signals;
-}
-
-/* Sets the logical values of the output control signal pins.
-   This should be called frequently (not just when the values change).
-   Bit 0 is DTR.
-   Bit 1 is RTS. */
-void ioTxSignals(uint8 signals)
-{
-    static uint8 nTrstPulseStartTime;
-    static uint8 lastSignals;
-
-    // Inverted outputs
-    setDigitalOutput(param_nDTR_pin, (signals & ACM_CONTROL_LINE_DTR) ? 0 : 1);
-    setDigitalOutput(param_nRTS_pin, (signals & ACM_CONTROL_LINE_RTS) ? 0 : 1);
-
-    // Non-inverted outputs.
-    setDigitalOutput(param_DTR_pin, (signals & ACM_CONTROL_LINE_DTR) ? 1 : 0);
-    setDigitalOutput(param_RTS_pin, (signals & ACM_CONTROL_LINE_RTS) ? 1 : 0);
-
-    lastSignals = signals;
-}
-
-void errorOccurred()
-{
-    lastErrorTime = (uint8)getMs();
-    errorOccurredRecently = 1;
-}
-
-void errorService()
-{
-    static uint8 lastRxLowTime;
-
-    if (uart1RxBufferFullOccurred)
-    {
-        uart1RxBufferFullOccurred = 0;
-        errorOccurred();
-    }
-
-    if (uart1RxFramingErrorOccurred)
-    {
-        uart1RxFramingErrorOccurred = 0;
-
-        // A framing error occurred.
-        framingErrorActive = 1;
-        errorOccurred();
-
-        if (param_framing_error_ms > 0)
-        {
-            // Disable the UART's receiver.
-            U1CSR &= ~0x40;    // U1CSR.RE = 0.  Disables reception of bytes on the UART.
-            uartRxDisabled = 1;
-            lastRxLowTime = (uint8)getMs();  // Initialize lastRxLowTime even if the line isn't low right now.
-        }
-    }
-
-    if (framingErrorActive)
-    {
-        if (!isPinHigh(17))
-        {
-            errorOccurred();
-        }
-        else
-        {
-            framingErrorActive = 0;
-        }
-    }
-
-    if (uartRxDisabled)
-    {
-        if (!isPinHigh(17))
-        {
-            // The line is low.
-            lastRxLowTime = (uint8)getMs();
-        }
-        else if ((uint8)(getMs() - lastRxLowTime) > param_framing_error_ms)
-        {
-            // The line has been high for long enough, so re-enable the receiver.
-            U1CSR |= 0x40;
-            uartRxDisabled = 0;
-        }
-    }
-}
-
-void updateSerialMode()
-{
-    if ((uint8)param_serial_mode > 0 && (uint8)param_serial_mode <= 3)
-    {
-        currentSerialMode = (uint8)param_serial_mode;
-        return;
-    }
-
     if (usbPowerPresent())
     {
-        if (vinPowerPresent())
-        {
-            currentSerialMode = SERIAL_MODE_USB_UART;
-        }
-        else
-        {
-            currentSerialMode = SERIAL_MODE_USB_RADIO;
-        }
+	currentMode = MODE_TETHERED;       
     }
     else
     {
-        currentSerialMode = SERIAL_MODE_UART_RADIO;
+        currentMode = MODE_UNTETHERED; 
     }
 }
 
-void usbToRadioService()
+void usbToRadioService() //runs during TETHERED mode, relays info between USB and radio
 {
-    uint8 signals;
-
     // Data
     while(usbComRxAvailable() && radioComTxAvailable())
     {
@@ -292,27 +133,13 @@ void usbToRadioService()
     {
         usbComTxSendByte(radioComRxReceiveByte());
     }
-
-    // Control Signals
-
-    radioComTxControlSignals(usbComRxControlSignals() & 3);
-
-    // Need to switch bits 0 and 1 so that DTR pairs up with DSR.
-    signals = radioComRxControlSignals();
-    usbComTxControlSignals( ((signals & 1) ? 2 : 0) | ((signals & 2) ? 1 : 0));
 }
 
-void uartToRadioService()
+void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
 {
-    //This piece of code controls the robot.
-    //This code operates only if USB power is not present (battery power)
     
     uint8 mybyte; //for the incoming byte storage
-
     uint8 static set_pwm = 0; //flag that we saw the set pwm symbol 'p'
-
-    // T3CC0 = T3CC1
-
     uint8 static pwm;
 
     while(radioComRxAvailable()){
@@ -322,7 +149,6 @@ void uartToRadioService()
             pwm = mybyte;
             T3CC0 = T3CC1 = pwm;
             set_pwm = 0;
-
             continue;
         }
 
@@ -331,122 +157,70 @@ void uartToRadioService()
                 set_pwm = 1;
             break;
             case 0x77:
-        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
-        		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
-        		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
-        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
+        		setDigitalOutput(A1,HIGH); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(A2,LOW); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(B1,LOW); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(B2,HIGH); //Input B2 to motor driver, controls right side
     		break; //'w'
             case 0x61:
-        		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
-        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
-        		setDigitalOutput(2,LOW); //Input B1 to motor driver, controls right side
-        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
+        		setDigitalOutput(A1,LOW); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(A2,HIGH); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(B1,LOW); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(B2,HIGH); //Input B2 to motor driver, controls right side
     		break; //'a'
             case 0x73:
-        		setDigitalOutput(0,LOW); //Input A1 to motor driver, controls left side
-        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
-        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
-        		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
+        		setDigitalOutput(A1,LOW); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(A2,HIGH); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(B1,HIGH); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(B2,LOW); //Input B2 to motor driver, controls right side
     		break; //'s'
             case 0x64:
-        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
-        		setDigitalOutput(1,LOW); //Input A2 to motor driver, controls left side
-        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
-        		setDigitalOutput(3,LOW); //Input B2 to motor driver, controls right side
+        		setDigitalOutput(A1,HIGH); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(A2,LOW); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(B1,HIGH); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(B2,LOW); //Input B2 to motor driver, controls right side
     		break; //'d'
             case 0x20:
-        		setDigitalOutput(0,HIGH); //Input A1 to motor driver, controls left side
-        		setDigitalOutput(1,HIGH); //Input A2 to motor driver, controls left side
-        		setDigitalOutput(2,HIGH); //Input B1 to motor driver, controls right side
-        		setDigitalOutput(3,HIGH); //Input B2 to motor driver, controls right side
+        		setDigitalOutput(A1,HIGH); //Input A1 to motor driver, controls left side
+        		setDigitalOutput(A2,HIGH); //Input A2 to motor driver, controls left side
+        		setDigitalOutput(B1,HIGH); //Input B1 to motor driver, controls right side
+        		setDigitalOutput(B2,HIGH); //Input B2 to motor driver, controls right side
     		break; //Space executes a hard brake
             }
     }
-
-    // Control Signals.
-    ioTxSignals(radioComRxControlSignals());
-    radioComTxControlSignals(ioRxSignals());
-}
-
-void usbToUartService()
-{
-    uint8 signals;
-
-    // Data
-    while(usbComRxAvailable() && uart1TxAvailable())
-    {
-        uart1TxSendByte(usbComRxReceiveByte());
-    }
-
-    while(uart1RxAvailable() && usbComTxAvailable())
-    {
-        usbComTxSendByte(uart1RxReceiveByte());
-    }
-
-    ioTxSignals(usbComRxControlSignals());
-
-    // Need to switch bits 0 and 1 so that DTR pairs up with DSR.
-    signals = ioRxSignals();
-    usbComTxControlSignals( ((signals & 1) ? 2 : 0) | ((signals & 2) ? 1 : 0));
-
-    // TODO: report framing, parity, and overrun errors to the USB host here
 }
 
 void main()
 {
     systemInit();
-
-    ioTxSignals(0);
-
     usbInit();
-
-    uart1Init();
-    uart1SetBaudRate(param_baud_rate);
-
-    if (param_serial_mode != SERIAL_MODE_USB_UART)
-    {
-        radioComRxEnforceOrdering = 1;
-        radioComInit();
-    }
-
-    // Set up P1_5 to be the radio's TX debug signal.
-    P1DIR |= (1<<5);
-    IOCFG0 = 0b011011; // P1_5 = PA_PD (TX mode)
-	
-	setDigitalOutput(0,PULLED);
-	setDigitalOutput(1,PULLED);
-	setDigitalOutput(2,PULLED);
-	setDigitalOutput(3,PULLED);
-	setDigitalOutput(15,PULLED);
-
+    radioComRxEnforceOrdering = 0;
+    radioComInit();
+    setDigitalOutput(A1,PULLED);
+    setDigitalOutput(A2,PULLED);
+    setDigitalOutput(B1,PULLED);
+    setDigitalOutput(B2,PULLED);
+    setDigitalOutput(ENABLE,PULLED);
     timer3Init(); //Timer 3 will now control the Enable A and Enable B pins on the motor driver
-    setDigitalOutput(0,LOW); // Initializing A1, A2, B1, B2 to LOW so the robot doesn't move, but not brake mode
-    setDigitalOutput(1,LOW);
-    setDigitalOutput(2,LOW);
-    setDigitalOutput(3,LOW);
-    setDigitalOutput(15,HIGH); //Standby mode: Motor driver turns off when LOW, on when HIGH
+    setDigitalOutput(A1,LOW); // Initializing A1, A2, B1, B2 to LOW so the robot doesn't move, but not brake mode
+    setDigitalOutput(A2,LOW);
+    setDigitalOutput(B1,LOW);
+    setDigitalOutput(B2,LOW);
+    setDigitalOutput(ENABLE,HIGH); //Standby mode: Motor driver turns off when LOW, on when HIGH
     T3CC0 = T3CC1 = 255; //this means we init PWM val to 255 unless otherwise specified
-
 
     while(1)
     {
-        updateSerialMode();
+        updateMode();
         boardService();
         updateLeds();  
-        errorService();
-
-        if (param_serial_mode != SERIAL_MODE_USB_UART)
-        {
-            radioComTxService();
-        }
-
+	radioComTxService();
         usbComService();
 
-        switch(currentSerialMode)
+        switch(currentMode)
         {
-        case SERIAL_MODE_USB_RADIO:  usbToRadioService();  break;
-        case SERIAL_MODE_UART_RADIO: uartToRadioService(); break;
-        case SERIAL_MODE_USB_UART:   usbToUartService();   break;
+        case MODE_TETHERED:  	usbToRadioService();  break;
+        case MODE_UNTETHERED: 	robotRadioService(); break;
         }
     }
 }
