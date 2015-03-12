@@ -17,6 +17,10 @@
 #include <packet.h>
 
 uint8 i = 0;
+
+//Lun-Cheng 
+USE_QUEUE_TUPLE_TYPE(queue_name, queue_size, tuple_name, tuple_size)
+
 QTuple packet; //for storing packets, which may come in multiple bytes over multiple CPU loops
 BIT readstate = 0; //0 means idle state, 1 means currently reading a packet state
 

@@ -6,27 +6,46 @@
  *   Mail: lc@cs.wisc.edu
  */
 
+/** runtime type check
+ */
+#define QUEUE_MAGIC 20
+#define TUPLE_MAGIC 16
+
+/** handy dummy type
+ */
+USE_QUEUE_TUPLE_TYPE(DummyQueue, 1, DummyTuple, 1)
 
 //
 // member funciton: Push 
 // return 1: success, 
 //        0: fail(queue is full)
 //
-int QPush(QTuple* p) __reentrant
+int QPush(void* v) __reentrant
 {
   int i = 0;
   int next = 0;
-  Queue* queue = (0==p ? 0: p->caller);
-  if (0!=queue) {
-    next = (queue->tail+1)%QContSize;
-    if (next != queue->head) {
-      // copy p to queue
-      for (i = 0; i < QTupleSize; ++i) {
-        queue->Qdata[next].bytes[i] = p->bytes[i];
-      } 
-      queue->tail = next;
-      return 1;
-    }
+  int q_size = 0;
+  int t_size = 0;
+  DummyTuple* tuple = (DummyTuple*)v;
+  DummyQueue* queue = (DummyQueue*)(0==tuple ? 0: tuple->caller);
+
+  // sanity check
+  if (0==tuple || tuple->magic!=TUPLE_MAGIC)
+    return 0;
+  if (0==queue || queue->magic!=QUEUE_MAGIC)
+    return 0;
+
+  q_size = queue->size;
+  t_size = tuple->size;
+
+  next = (queue->tail+1)%q_size;
+  if (next != queue->head) {
+    // copy tuple to queue
+    for (i = 0; i < t_size; ++i) {
+      queue->Qdata[next].bytes[i] = tuple->bytes[i];
+    } 
+    queue->tail = next;
+    return 1;
   }
   return 0;
 }
@@ -35,32 +54,39 @@ int QPush(QTuple* p) __reentrant
 // Force push date into the queue.
 // i.e. if the queue is full, then the new pushed elelment will overide oldest element.
 //
-int QPushForce(QTuple* p) __reentrant
+int QPushForce(void* v) __reentrant
 {
   int i = 0;
   int next = 0;
-  Queue* queue = (0==p ? 0: p->caller);
+  int q_size = 0;
+  int t_size = 0;
+
+  DummyTuple* tuple = (DummyTuple*)v;
+  DummyQueue* queue = (DummyQueue*)(0==tuple ? 0: tuple->caller);
+
   if (0!=queue) {
-    next = (queue->tail+1)%QContSize;
+    q_size = queue->size;
+    t_size = tuple->size;
+
+    next = (queue->tail+1)%q_size;
     if (next != queue->head) {
-      // copy p to queue
-      for (i = 0; i < QTupleSize; ++i) {
-        queue->Qdata[next].bytes[i] = p->bytes[i];
+      // copy tuple to queue
+      for (i = 0; i < t_size; ++i) {
+        queue->Qdata[next].bytes[i] = tuple->bytes[i];
       } 
       queue->tail = next;
       return 1;
     } else {
-      for (i = 0; i < QTupleSize; ++i) {
-        queue->Qdata[next].bytes[i] = p->bytes[i];
+      for (i = 0; i < t_size; ++i) {
+        queue->Qdata[next].bytes[i] = tuple->bytes[i];
       } 
       queue->tail = next;
-      queue->head = (queue->head+1)%QContSize;;
+      queue->head = (queue->head+1)%q_size;;
       return 1;
     }
   }
   return 0;
 }
-
 
 
 //
@@ -68,51 +94,59 @@ int QPushForce(QTuple* p) __reentrant
 // return 1: success, 
 //        0: fail(queue is already empty)
 //
-int QPop(QTuple* p) __reentrant
+int QPop(void* v) __reentrant
 {
   int i = 0;
-  Queue* queue = 0==p ? 0 : p->caller;
+  int q_size = 0;
+  int t_size = 0;
+  DummyTuple* tuple = (DummyTuple*)v;
+  DummyQueue* queue = (DummyQueue*)(0==tuple ? 0: tuple->caller);
+
   if (0!=queue && queue->head!=queue->tail) {
-    queue->head = (queue->head+1)%QContSize;
+    q_size = queue->size;
+    t_size = tuple->size;
+
+    queue->head = (queue->head+1)%q_size;
     // copy queue to p
-    for (i = 0; i < QTupleSize; ++i) {
-      p->bytes[i] = queue->Qdata[queue->head].bytes[i];
+    for (i = 0; i < t_size; ++i) {
+      tuple->bytes[i] = queue->Qdata[queue->head].bytes[i];
     }
     return 1;
   }
   return 0;
 }
 
-//
-// Call this before using Queue
-// return 1: success
-//        0: fail
-//
-int InitQueue(Queue* queue) 
+/** Associate Queue and QTuple. 
+ *  return 1: success
+ *         0: fail
+ */
+
+int InitQueue(void* queue, int size) 
 {
-  if (0!=queue) {
-    queue->head = 0;
-    queue->tail = 0;
-    queue->Push = QPush;
-    queue->PushForce = QPushForce;
-    queue->Pop = QPop;
+  DummyQueue* q = (DummyQueue*)queue;
+
+  if (0!=q) {
+    q->magic = QUEUE_MAGIC;
+    q->size = size;
+    q->head = 0;
+    q->tail = 0;
+    q->Push = QPush;
+    q->PushForce = QPushForce;
+    q->Pop = QPop;
     return 1;
   }
   return 0;
 }
 
-
-
-
-//
-// Associate Queue and QTuple. 
-// return 1: success
-//        0: fail
-//
-int LinkQueue(Queue* queue, QTuple* tuple) 
+int LinkQueue(void* queue, void* tuple, int size)
 {
-  if (0!=queue && 0!=tuple) {
-    tuple->caller = queue;
+  DummyQueue* q = (DummyQueue*)queue;
+  DummyTuple* t = (DummyTuple*)tuple;
+
+  if (0!=q && 0!=t) {
+    t->magic = TUPLE_MAGIC;
+    t->size = size;
+    t->caller = queue;
     return 1;
   }
   return 0;
