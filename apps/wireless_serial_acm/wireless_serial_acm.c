@@ -32,9 +32,8 @@ int32 CODE param_baud_rate = 9600;
 uint8 DATA currentMode;
 uint8 DATA str[32];
 
-uint32  DATA runUntil;
-float   DATA timer;
-float   DATA turnAngle;
+int DATA runUntil;
+int DATA turnAngle;
 
 /** Functions *****************************************************************/
 
@@ -200,81 +199,37 @@ void sendBackString(char s[]) {
 
 // x1, y1, rot all properties of robot
 // x2, y2 properties of waypoint
-float calculateAngle(float x1, float y1, float rot, float x2, float y2) {
-  float dX = x2 - x1;
+int calculateAngle(int x1, int y1, int rot, int x2, int y2) {
+  int dX = x2 - x1;
+  // Y based off opposite coordinate system
+  int dY = y1 - y2;
 
-  // TODO this may need to be changed based on april tag's coordinate system
-  float dY = y2 - y1;
-
-  float angle = atan2f(dY, dX) * 180 / 3.14159;
-  float finalAngle;
+  int angle = atan2f(dY, dX) * (180 / 3.14159);
+  int finalAngle;
 
   if (angle >= 0) {
     finalAngle = rot - angle;
-    sendBackString("Turn LEFT\n");
   } else {
-    sendBackString("Turn RIGHT\n");
     finalAngle = rot + angle;
   }
-
-  sprintf(str, "calc angle = %i\n\rfinal angle = %i", (uint8) angle, (uint8) finalAngle);
-  sendBackString(str);
 
   return finalAngle;
 }
 
-void angleTest() {
-  // Pos angle means turn LEFT
-  // Neg angle means turn RIGHT
-
-  // Angle should be 360 (0)
-  // Final should be -45
-  calculateAngle(0, 0, 45, 1, 0);
-
-  // Angle should be 45
-  // Final should be 0
-  calculateAngle(0, 0, 45, 1, 1);
-
-  // Angle should be 90
-  // Final should be 45
-  calculateAngle(0, 0, 45, 0, 1);
-
-  // Angle should be 135
-  // Final should be 90
-  calculateAngle(0, 0, 45, -1, 1);
-
-  // Angle should be 180 (0)
-  // Final should be 135
-  calculateAngle(0, 0, 45, -1, 0);
-
-  // Angle should be 225 (-135)
-  // Final should be 180 or -180
-  calculateAngle(0, 0, 45, -1, -1);
-
-  // Angle should be 270 (-90)
-  // Final should be -135
-  calculateAngle(0, 0, 45, 0, -1);
-
-  // Angle should be 315 (-45)
-  // Final should be -90
-  calculateAngle(0, 0, 45, 1, -1);
-}
-
-
 // Estimate how long (in milliseconds) to rotate LEFT to turn this many degrees
 // counterclockwise.  Angle should be in [0, 180].  Assumes PWR=100.
-float rotateLeft(float angle) {
+int rotateLeft(int angle) {
   return 81.6 + 3.65 * angle;
 }
 
 // Estimate how long (in milliseconds) to rotate RIGHT to turn this many degrees
 // clockwise. Angle should be in [0, -180]. Assumes PWR=100.
-float rotateRight(float angle) {
+int rotateRight(int angle) {
   return 60.2 - 4.12 * angle;
 }
 
-float turn(float angle) {
-  float time;
+int turn(int angle) {
+  int time;
 
   if (angle >= 0) {
     time = rotateLeft(angle);
@@ -284,18 +239,27 @@ float turn(float angle) {
     turnRight();
   }
 
-  return angle;
+  sprintf(str, "time = %i\n\r", time);
+  sendBackString(str);
+
+  return time;
 }
 
 void turnTest() {
   // angleTest();
 
   // Calculate 90 degrees, turning to left
-  turnAngle = calculateAngle(0, 0, 0, 0, 1);
-  timer = turn(turnAngle);
+  int angle = calculateAngle(0, 0, 0, 0, 1);
+  int timer = turn(angle);
 
   // Pad the timer just a little bit
-  runUntil = (timer * 1.2) +  getMs();
+  runUntil = (int) timer +  (int) getMs();
+
+  sprintf(str, "timer = %i\n\r", timer);
+  sendBackString(str);
+
+  sprintf(str, "runUntil: %i\n\r", runUntil);
+  sendBackString(str);
 }
 
 void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
@@ -316,7 +280,8 @@ void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
       continue;
     }
 
-    if (getMs() > runUntil) {
+    if ((int) getMs() > runUntil) {
+      sendBackString("DONE\r\n");
       brake();
     }
 
