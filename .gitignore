@@ -36,3 +36,7 @@ apps/*/*
 /libraries/src/spi_master/spi1_master.c
 
 /installer/build/
+
+GPATH
+GTAGS
+GRTAGS
