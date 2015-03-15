@@ -6,18 +6,18 @@
  */
 
 /*Bypass*/
-const uint16 MOVE_UPDT=1<<0;
+XDATA const uint16 MOVE_UPDT=1<<0;
 /*Direction*/
-const uint16 MOVE_LEFT=1<<1; 
-const uint16 MOVE_RGHT=1<<2; 
-const uint16 MOVE_FWRD=1<<3;
-const uint16 MOVE_BWRD=1<<4;
-const uint16 MOVE_STOP=1<<5;
+XDATA const uint16 MOVE_LEFT=1<<1; 
+XDATA const uint16 MOVE_RGHT=1<<2; 
+XDATA const uint16 MOVE_FWRD=1<<3;
+XDATA const uint16 MOVE_BWRD=1<<4;
+XDATA const uint16 MOVE_STOP=1<<5;
 /*DURATION: DUR0 is the shortest*/
-const uint16 MOVE_DUR0=1<<6; 
-const uint16 MOVE_DUR1=1<<7;
-const uint16 MOVE_DUR2=1<<8;
-const uint16 MOVE_DUR3=1<<9;
+XDATA const uint16 MOVE_DUR0=1<<6; 
+XDATA const uint16 MOVE_DUR1=1<<7;
+XDATA const uint16 MOVE_DUR2=1<<8;
+XDATA const uint16 MOVE_DUR3=1<<9;
 
 /** Mannualy set the duration by prior ;)
  */
@@ -54,10 +54,10 @@ int UpdateDirection(uint8 cmd) {
 /* Control car motion
  */
 void MoveUpdate(uint16 cmd) {
-  uint32 cur_time = getMs();
+  XDATA uint32 cur_time = getMs();
 
   // internel state
-  enum {MCTL_STOP=0, MCTL_INIT=1, MCTL_MOVEING=2};
+  XDATA enum {MCTL_STOP=0, MCTL_INIT=1, MCTL_MOVEING=2};
   static uint8  g_mctl_state = 0; 
   static uint32 g_mctl_duetime = 0;
   static uint32 g_mctl_mv_ms = 50; // move 50 ms

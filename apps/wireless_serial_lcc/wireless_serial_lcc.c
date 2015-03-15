@@ -15,6 +15,7 @@
 #include <uart1.h>
 #include <stdio.h>
 #include <packet.h>
+#include <math.h>
 
 /** Parameters ****************************************************************/
 #define MODE_TETHERED	        0
@@ -75,9 +76,6 @@ void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
         Brake();
         MoveUpdate(MOVE_STOP);
         break;
-      case 0x65://'e'
-        MoveUpdate(MOVE_LEFT);
-        break; 
       case 0x66://'f'
         MoveUpdate(MOVE_DUR0);
         break; 
@@ -93,7 +91,7 @@ void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
 
 
 /******/
-enum {STATE_INVALID = 0, STATE_EXIST = 1, STATE_FOUND = 2};
+XDATA enum {STATE_INVALID = 0, STATE_EXIST = 1, STATE_FOUND = 2};
 
 typedef struct Status{
   uint16 x, y, r; // x, y, orientation
@@ -108,7 +106,7 @@ XDATA Status targets[MAX_TARGETS];
 XDATA Status myrobot;
 
 void InitTargets() {
-  int i = 0;
+  uint8 i = 0;
   for (i = 0; i < MAX_TARGETS; ++i) {
     targets[i].x = targets[i].y = targets[i].r = 0;
     targets[i].state = STATE_INVALID;
@@ -118,8 +116,8 @@ void InitTargets() {
 
 /** Update targets list
  */
-void UpdateTargets (uint8 id, uint16 x, uint16 y, uint16 r) {
-  int i = 0; 
+void UpdateTargets (uint8 id, XDATA uint16 x, XDATA uint16 y, XDATA uint16 r) {
+  uint8 i = 0; 
   uint8 state = STATE_INVALID;
   for (i = 0; i < MAX_TARGETS && targets[i].state; ++i) {
     if (targets[i].id == id) {
@@ -138,44 +136,86 @@ void UpdateTargets (uint8 id, uint16 x, uint16 y, uint16 r) {
 
 /** Update robot current status 
  */
-void UpdateMyRobot (uint16 x, uint16 y, uint16 r) {
+void UpdateMyRobot (XDATA uint16 x, XDATA uint16 y, XDATA uint16 r) {
     myrobot.x = x;
     myrobot.y = y;
     myrobot.r = r;
 }
 
-int GetTargetIdx(uint8* idx) {
+/** Find the target from target list, choose the closest one
+ *  return 0: not found
+ *         1: found it
+ */
+int GetTargetIdx (uint8* idx, XDATA uint32* squ_dist) {
   uint8 i = 0;
-  uint8 exist = 0;
-  uint32 dist = 0;
-  uint32 min_dist = 0xffffffff;
-  int16 dx = 0;
-  int16 dy = 0;
+  XDATA uint8 exist = 0;
+  XDATA int16 dx = 0;
+  XDATA int16 dy = 0;
+  XDATA uint32 min_dist = 0;
+  XDATA uint32 dist = 0;
 
   for (i = 0; i < MAX_TARGETS && targets[i].state; ++i) {
+    if (targets[i].state == STATE_FOUND)
+      continue;
     dx = targets[i].x - myrobot.x; 
     dy = targets[i].y - myrobot.y; 
     dist = dx*dx + dy*dy;
     if (min_dist > dist) {
       *idx = i;
       exist = 1;
-      //min_dist = dist;
+      min_dist = dist;
     }
   }
+  *squ_dist = min_dist;
   return exist;
 }
 
-void Set() {
-  int a = 0;
+/** return degree between target and robot
+ */
+int16 GetDiffOrientation(uint8 tgt_idx) {
+  XDATA int16 tgt_x = targets[tgt_idx].x;
+  XDATA int16 tgt_y = targets[tgt_idx].y;
+
+  XDATA float dx = tgt_x - myrobot.x;
+  XDATA float dy = tgt_y - myrobot.y;
+  XDATA float deg = atan2f(dx, dy)*180.f/3.1415926f;
+  return deg;
+}
+
+/** Rotate car
+ *  return 0: finish rotation, diff degree < Threshold_Deg 
+ *         1: rotating
+ */
+int RotateCar(XDATA int16 degree) {
+  XDATA uint16 Threshold_Deg = 3;
+  XDATA uint16 abs_deg = degree > 0? degree : -degree;
+  XDATA uint16 DIRECTION =  degree > 0? MOVE_LEFT: MOVE_RGHT;
+  XDATA uint16 DURATION =  0;
+
+  if (abs_deg < Threshold_Deg) 
+    return 0;
+  else if (abs_deg < 6)
+    DURATION = MOVE_DUR0;
+  else if (abs_deg < 12)
+    DURATION = MOVE_DUR1;
+  else
+    DURATION = MOVE_DUR2;
+
+  MoveUpdate(DURATION|DIRECTION);
+  return 1;
 }
 
 
-void UpdateGame(uint8 id, uint16 x, uint16 y, uint16 r) {
+/** Update game status and robot motion
+ */
+void UpdateGame(XDATA uint8 id, XDATA uint16 x, XDATA uint16 y, XDATA uint16 r) {
+  //TODO
   //manual setting my_id
-  int my_id = 0;
-  int direction = 0;
-  int distance = 0;
-  uint8 tgt_idx = 0;
+  XDATA uint8 my_id = 0;//TODO : set correct id
+  XDATA uint8 tgt_idx = 0;
+  XDATA int16 diff_orientation = 0;
+  XDATA uint32 distance = 0;
+  XDATA uint32 Dist_Thld = 10;
 
   if (id == my_id)
     UpdateMyRobot(x, y, r);
@@ -183,16 +223,25 @@ void UpdateGame(uint8 id, uint16 x, uint16 y, uint16 r) {
     UpdateTargets(id, x, y, r);
 
   // get target idx
-  if (!GetTargetIdx(&tgt_idx)) {
+  if (!GetTargetIdx(&tgt_idx, &distance)) {
     return;
   }
+  // check distance close enough
+  // and update list
+  if (distance < Dist_Thld) {
+    SendBackStr("X");  
+    targets[i].state = STATE_FOUND;
+  }
 
-  // caculate direction and distance
+  // caculate direction
+  diff_orientation = GetDiffOrientation(tgt_idx);
 
-  // set my move direction
-
-  // set my move duration
-
+  // update car direction
+  if (RotateCar(diff_orientation)) {
+    return;
+  }
+  // move duration
+  MoveUpdate(MOVE_FWRD|MOVE_DUR2);
 }
 
 
