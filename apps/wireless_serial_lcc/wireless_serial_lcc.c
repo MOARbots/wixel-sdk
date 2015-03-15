@@ -14,10 +14,7 @@
 #include <radio_link.h>
 #include <uart1.h>
 #include <stdio.h>
-
-// these header are implementations
-#include "control_car.h"
-#include "init_setup.h"
+#include <packet.h>
 
 /** Parameters ****************************************************************/
 #define MODE_TETHERED	        0
@@ -33,116 +30,13 @@ int32 CODE param_baud_rate = 9600;
 /** Global Variables **********************************************************/
 uint8 DATA currentMode;
 
-//uint8 DATA currentSerialMode;
-
 /** Functions *****************************************************************/
-void updateMode() {
-  if (usbPowerPresent()) {
-    currentMode = MODE_TETHERED;       
-  } else {
-    currentMode = MODE_UNTETHERED; 
-  }
-}
 
-void usbToRadioService() //runs during TETHERED mode, relays info between USB and radio
-{
-    // Data
-    while(usbComRxAvailable() && radioComTxAvailable()) {
-        radioComTxSendByte(usbComRxReceiveByte());
-    }
-
-    while(radioComRxAvailable() && usbComTxAvailable()) {
-        usbComTxSendByte(radioComRxReceiveByte());
-    }
-}
-
-
-void UpdateWayPoints() {
-
-}
-
-void sendBackString(char s[]) { 
-  int i = 0; 
-  if (currentMode != SERIAL_MODE_USB_UART && s != NULL) { 
-    if (!radioComTxAvailable()) { radioComTxService(); radioLinkTxQueueReset();  } 
-    while (s[i] != '\0') { 
-      if ( radioComTxAvailable() ) { radioComTxSendByte(s[i]);  } 
-      else { radioComTxService();  } 
-      i++; 
-    } 
-    radioComTxService(); 
-  } 
-}
-
-//
-// g_mctl_move: Moving Control Flag
-// 0: no move, 
-// 1: set moving properties, 
-// 2: moving
-//
-
-enum {MOVE_LEFT=0, MOVE_RGHT=1, MOVE_FWRD=2, MOVE_BWRD=3, MOVE_STOP=4, MOVE_UPDT=5};
-enum {MCTL_STOP=0, MCTL_INIT=1, MCTL_MOVEING=2};
-static uint8  g_mctl_state = 0; 
-static uint32 g_mctl_duetime = 0;
-static uint32 g_mctl_mv_ms = 50; // move 50 ms
-
-void MoveUpdate(uint8 cmd) {
-  uint32 cur_time = getMs();
-
-  // move direction
-  switch (cmd) {
-    case MOVE_LEFT:
-      sendBackString("MLft ");
-      g_mctl_state = MCTL_INIT;
-      MoveLeft(); 
-      break;
-    case MOVE_RGHT:
-      sendBackString("MRgt ");
-      g_mctl_state = MCTL_INIT;
-      MoveRight(); 
-      break;
-    case MOVE_FWRD:
-      sendBackString("MFwd ");
-      g_mctl_state = MCTL_INIT;
-      MoveForward(); 
-      break;
-    case MOVE_BWRD:
-      sendBackString("MBwd ");
-      g_mctl_state = MCTL_INIT;
-      MoveBackward(); 
-      break;
-    case MOVE_STOP:
-      sendBackString("MStp ");
-      Brake();
-      break;
-    default:
-      break;
-  }
-
-  // update state
-  switch (g_mctl_state) {
-    case MCTL_STOP:
-      //sendBackString("S0 ");
-      break;
-    case MCTL_INIT:
-      //sendBackString("S1 ");
-      g_mctl_duetime = cur_time + g_mctl_mv_ms;
-      g_mctl_state = MCTL_MOVEING;
-      break;
-    case MCTL_MOVEING:
-      //sendBackString("S2 ");
-      if (cur_time > g_mctl_duetime) {
-          g_mctl_state = MCTL_STOP;
-          Brake();
-      }
-      break;
-    default:
-      break;
-  }
-   
-}
-
+// these header are implementations
+#include "control_car.h"
+#include "init_setup.h"
+#include "radio_str.h"
+#include "control_motion.h"
 
 void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
 {
@@ -165,20 +59,16 @@ void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
         set_pwm = 1;
         break;
       case 0x77://'w'
-        MoveForward();
         MoveUpdate(MOVE_FWRD);
         break; 
       case 0x61://'a'
-        MoveLeft();
         MoveUpdate(MOVE_LEFT);
         break; 
         break; 
       case 0x73://'s'
-        MoveBackward();
         MoveUpdate(MOVE_BWRD);
         break; 
       case 0x64://'d'
-        MoveRight();
         MoveUpdate(MOVE_RGHT);
         break; 
       case 0x20://Space executes a hard brake
@@ -188,31 +78,146 @@ void robotRadioService() //runs during UNTETHERED mode, robot behaviors go here
       case 0x65://'e'
         MoveUpdate(MOVE_LEFT);
         break; 
+      case 0x66://'f'
+        MoveUpdate(MOVE_DUR0);
+        break; 
+      case 0x67://'g'
+        MoveUpdate(MOVE_DUR1);
+        break;
+      case 0x68://'h'
+        MoveUpdate(MOVE_DUR2);
+        break;
     }
-    //
   }
 }
+
+
+/******/
+enum {STATE_INVALID = 0, STATE_EXIST = 1, STATE_FOUND = 2};
+
+typedef struct Status{
+  uint16 x, y, r; // x, y, orientation
+  uint8 state; // STATE_INVALID = 0, STATE_EXIST = 1, STATE_FOUND = 2
+  uint8 id;
+} Status;
+
+/** Target List
+ */
+#define MAX_TARGETS 32
+XDATA Status targets[MAX_TARGETS];
+XDATA Status myrobot;
+
+void InitTargets() {
+  int i = 0;
+  for (i = 0; i < MAX_TARGETS; ++i) {
+    targets[i].x = targets[i].y = targets[i].r = 0;
+    targets[i].state = STATE_INVALID;
+    targets[i].id= 0;
+  }
+}
+
+/** Update targets list
+ */
+void UpdateTargets (uint8 id, uint16 x, uint16 y, uint16 r) {
+  int i = 0; 
+  uint8 state = STATE_INVALID;
+  for (i = 0; i < MAX_TARGETS && targets[i].state; ++i) {
+    if (targets[i].id == id) {
+      state = targets[i].state; 
+      break;    
+    }
+  }
+  if (state == STATE_INVALID && i < MAX_TARGETS) {
+    targets[i].state = STATE_EXIST;
+    targets[i].id = id;
+    targets[i].x = x;
+    targets[i].y = y;
+    targets[i].r = r;
+  }
+}
+
+/** Update robot current status 
+ */
+void UpdateMyRobot (uint16 x, uint16 y, uint16 r) {
+    myrobot.x = x;
+    myrobot.y = y;
+    myrobot.r = r;
+}
+
+int GetTargetIdx(uint8* idx) {
+  uint8 i = 0;
+  uint8 exist = 0;
+  uint32 dist = 0;
+  uint32 min_dist = 0xffffffff;
+  int16 dx = 0;
+  int16 dy = 0;
+
+  for (i = 0; i < MAX_TARGETS && targets[i].state; ++i) {
+    dx = targets[i].x - myrobot.x; 
+    dy = targets[i].y - myrobot.y; 
+    dist = dx*dx + dy*dy;
+    if (min_dist > dist) {
+      *idx = i;
+      exist = 1;
+      //min_dist = dist;
+    }
+  }
+  return exist;
+}
+
+void Set() {
+  int a = 0;
+}
+
+
+void UpdateGame(uint8 id, uint16 x, uint16 y, uint16 r) {
+  //manual setting my_id
+  int my_id = 0;
+  int direction = 0;
+  int distance = 0;
+  uint8 tgt_idx = 0;
+
+  if (id == my_id)
+    UpdateMyRobot(x, y, r);
+  else 
+    UpdateTargets(id, x, y, r);
+
+  // get target idx
+  if (!GetTargetIdx(&tgt_idx)) {
+    return;
+  }
+
+  // caculate direction and distance
+
+  // set my move direction
+
+  // set my move duration
+
+}
+
 
 void main()
 {
   Initialize();
   T3CC0 = T3CC1 = 255; //this means we init PWM val to 255 unless otherwise specified
 
-  while(1)
-  {
+  while(1) {
     updateMode();
     boardService();
     updateLeds();  
     radioComTxService();
     usbComService();
 
-    switch(currentMode)
-    {
-      case MODE_TETHERED:  	usbToRadioService();  break;
-      case MODE_UNTETHERED: 	robotRadioService(); break;
+    switch(currentMode) {
+      case MODE_TETHERED:  	
+        usbToRadioService();  
+        break;
+      case MODE_UNTETHERED: 
+        robotRadioService(); 
+        UpdateGame(readID(), readX(), readY(), readR());
+        MoveUpdate(MOVE_UPDT);
+        break;
+      default: break;
     }
-
-    //lc: update state
-    MoveUpdate(MOVE_UPDT);
-  }
+  } //while
 }

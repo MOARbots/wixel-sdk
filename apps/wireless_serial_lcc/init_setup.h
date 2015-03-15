@@ -89,4 +89,27 @@ void Initialize() {
 }
 
 
+/** Functions *****************************************************************/
+void updateMode() {
+  if (usbPowerPresent()) {
+    currentMode = MODE_TETHERED;       
+  } else {
+    currentMode = MODE_UNTETHERED; 
+  }
+}
+
+void usbToRadioService() //runs during TETHERED mode, relays info between USB and radio
+{
+    // Data
+    while(usbComRxAvailable() && radioComTxAvailable()) {
+        radioComTxSendByte(usbComRxReceiveByte());
+    }
+
+    while(radioComRxAvailable() && usbComTxAvailable()) {
+        usbComTxSendByte(radioComRxReceiveByte());
+    }
+}
+
+
+
 #endif
