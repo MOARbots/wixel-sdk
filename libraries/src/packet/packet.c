@@ -49,13 +49,14 @@ BIT checkHeader(uint8 header) {
 }
 
 //extract a structure from a packet, of up to 8 bits in size
-uint8 read1byte(uint8 pos, uint8 length) {
+uint8 read1byte(uint8 pos, uint8 length, QTuple * mypacket ) __reentrant
+{
     uint8 temp,rel_pos;
     if (length > 8) { return 0x00; } //this is a failure; asking for more than 8 bit structure. you could use a flag to indicate that this happened.
     else if ( (pos+length) > QTupleSize*8 ) { return 0x0; } //this is a failure; structure can't extend outside of QTupleSize
     else {
 	rel_pos = (pos % 8); //pos mod 8 is the relative position in the byte
-	temp = packet.bytes[(pos >> 3)]; //floor of (pos divided by 8)
+	temp = mypacket->bytes[(pos >> 3)]; //floor of (pos divided by 8)
 	if ( 8 - rel_pos >= length ) { //Spans a single byte within the packet string
 		temp = temp >> (8 - (rel_pos + length) ); //align to the right
 		temp = temp & (0xFF >> (8 - length)); //mask any unused MSBs
@@ -64,7 +65,7 @@ uint8 read1byte(uint8 pos, uint8 length) {
 	else { //spans two bytes within the packet string
 		uint8 temp1;
 		temp = temp & (0xFF >> rel_pos); //mask the unneeded MSBs on temp
-		temp1 = packet.bytes[(pos >> 3)+1]; //grab the next byte
+		temp1 = mypacket->bytes[(pos >> 3)+1]; //grab the next byte
 		temp = temp << (length  - (8 - rel_pos) ); //move over by the number of bits we're going to grab from the next packet string byte
 		temp1 = temp1 >> (16 - length - rel_pos); //align to the right
 		return (temp | temp1);
@@ -73,7 +74,8 @@ uint8 read1byte(uint8 pos, uint8 length) {
 }
 
 //extract a structure from a packet, of up to 16 bits in size
-uint16 read2byte(uint8 pos, uint8 length) {
+uint16 read2byte(uint8 pos, uint8 length, QTuple * mypacket) __reentrant
+{
     if ( (length > 16) | (length <= 8) ) {return 0x00; } //check if failure b/c asking more than 16 bit structure, or should be using read1byte instead
     else if ( ( pos+length) > QTupleSize*8 ) { return  0x00; } //check if failure b/c extending outside of QTupleSize
     else {
@@ -82,8 +84,8 @@ uint16 read2byte(uint8 pos, uint8 length) {
 	rel_pos8 = (pos % 8); //Relative position within a single byte
 	if ( (length + rel_pos8) <= 16 ) {//Spans 2 bytes within the packet string
 	    uint8 temp1;
-	    temp = packet.bytes[(pos >> 3)];//Grab the byte at floor of  (pos / 8), this is the MSBs of our data, and already right aligned
-	    temp1 = packet.bytes[(pos >> 3) +1 ]; //grab the next byte, which is left aligned
+	    temp = mypacket->bytes[(pos >> 3)];//Grab the byte at floor of  (pos / 8), this is the MSBs of our data, and already right aligned
+	    temp1 = mypacket->bytes[(pos >> 3) +1 ]; //grab the next byte, which is left aligned
 	    temp = temp & (0xFF >> rel_pos8); //mask temp MSBs that aren't needed (from position 0 to start position)
 	    temp = temp << (length - 8 + rel_pos8);//shift over to the left by the number of bits we need to get from temp1
 	    temp1 = temp1 >> (16 - length - rel_pos8); //right align the temp1 data, this will also zero all other bits
@@ -93,10 +95,10 @@ uint16 read2byte(uint8 pos, uint8 length) {
 	else { //Spans 3 bytes within the packet string
 	    uint16 temp1;
 	    uint8 temp2;
-	    temp = packet.bytes[ (pos >> 3) ];//grab the byte at floor of (pos/16), MSBs that are right aligned
-	    temp1 = packet.bytes[ (pos >> 3) +1 ]; //Middle of our data, 8 bits long
+	    temp = mypacket->bytes[ (pos >> 3) ];//grab the byte at floor of (pos/16), MSBs that are right aligned
+	    temp1 = mypacket->bytes[ (pos >> 3) +1 ]; //Middle of our data, 8 bits long
 	    temp1 = temp1 & (0xFF); //going from uint8 to uint16 is putting 1s on all the MSBs, therefore we mask here.
-	    temp2 = packet.bytes[ (pos >> 3) +2 ]; //End of ur data, LSBs, left aligned.
+	    temp2 = mypacket->bytes[ (pos >> 3) +2 ]; //End of ur data, LSBs, left aligned.
 	    temp2 = temp2 & (0xFF); //going from uint8 to uint16, mask the MSBs
 	    temp = temp & (0xFF >> rel_pos8); //Mask MSBs from zero to start
 	    temp = temp << ( length - 8 + rel_pos8); //shift to the left by the number of bytes we need to get from bytes #2 and #3
@@ -110,19 +112,23 @@ uint16 read2byte(uint8 pos, uint8 length) {
 
 
 //wrapper functions
-uint8 readID() {
-	return read1byte(ID_START,ID_LENGTH);
+uint8 readID(QTuple* mypacket) __reentrant
+{
+	return read1byte(ID_START,ID_LENGTH, mypacket);
 }
 
-uint16 readY() {
-	return read2byte(Y_START,Y_LENGTH);
+uint16 readY(QTuple* mypacket) __reentrant
+{
+	return read2byte(Y_START,Y_LENGTH, mypacket);
 }
 
-uint16 readX() {
-	return read2byte(X_START,X_LENGTH);
+uint16 readX(QTuple* mypacket) __reentrant
+{
+	return read2byte(X_START,X_LENGTH,mypacket);
 }
 
-uint16 readR() {
-	return read2byte(R_START,R_LENGTH);
+uint16 readR(QTuple* mypacket) __reentrant
+{
+	return read2byte(R_START,R_LENGTH, mypacket);
 }
 

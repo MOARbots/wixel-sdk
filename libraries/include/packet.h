@@ -21,11 +21,11 @@ extern BIT readstate; //0 means idle state, 1 means currently reading a packet s
 
 BIT checkHeader(uint8 header);
 
-uint8 read1byte(uint8 pos, uint8 length);
-uint16 read2byte(uint8 pos, uint8 length);
+uint8 read1byte(uint8 pos, uint8 length, QTuple* mypacket) __reentrant; 
+uint16 read2byte(uint8 pos, uint8 length, QTuple* mypacket) __reentrant;
 
-uint8 readID();
-uint16 readY();
-uint16 readX();
-uint16 readR();
+uint8 readID(QTuple* mypacket) __reentrant;
+uint16 readY(QTuple* mypacket) __reentrant;
+uint16 readX(QTuple* mypacket) __reentrant;
+uint16 readR(QTuple* mypacket) __reentrant;
 

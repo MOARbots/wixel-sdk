@@ -181,11 +181,12 @@ void usbToRadioService()
 	    i=0;
 	    
 	    //Store or process the packet. Here we are formatting with printf, which calls putchar, then we call sendReport
-	    printf("ID: %u, ", readID());
-	    printf("Y: %u, ", readY());
-	    printf("X: %u, ", readX());
-	    printf("R: %u", readR());
+	    printf("ID: %u, ", readID(&packet));
+	    printf("Y: %u, ", readY(&packet));
+	    printf("X: %u, ", readX(&packet));
+	    printf("R: %u", readR(&packet));
 	    putchar('\n'); //note output won't be left aligned properly in screen or gtkterm... TODO a fix for this?
+	    putchar('\r'); //note output won't be left aligned properly in screen or gtkterm... TODO a fix for this?
 	    sendReportUSB();
 	}
     }
