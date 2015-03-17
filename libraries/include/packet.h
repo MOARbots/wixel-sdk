@@ -17,7 +17,6 @@
 
 extern uint8 i;
 extern QTuple packet; //for storing packets, which may come in multiple bytes over multiple CPU loops
-extern BIT readstate; //0 means idle state, 1 means currently reading a packet state
 
 BIT checkHeader(uint8 header);
 

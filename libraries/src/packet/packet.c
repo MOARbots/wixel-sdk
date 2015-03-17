@@ -18,7 +18,6 @@
 
 uint8 i = 0;
 QTuple packet; //for storing packets, which may come in multiple bytes over multiple CPU loops
-BIT readstate = 0; //0 means idle state, 1 means currently reading a packet state
 
 /*In this section define the start points and lengths
  * of data in your packet bitstring.
@@ -40,7 +39,6 @@ BIT readstate = 0; //0 means idle state, 1 means currently reading a packet stat
 BIT checkHeader(uint8 header) {
 	//to do: add check for start trial code, aka 'G' hex code 0x47
 	if ((header & 0xFC) == 0xFC) { //Our header is six leading bits (111111xx for the first byte) so we check against 0xFC = 11111100
-		readstate = 1;
 		i=0;
 		packet.bytes[0] = header;
 		return 1;

@@ -35,6 +35,16 @@ uint16 DATA reportLength = 0;
 // send to the computer over USB.
 uint16 DATA reportBytesSent = 0;
 
+/*Suggested use:
+ * 0 means idle (no packet currently being read), 1 means a packet is
+ * currently in the process of being collected off the radioRx buffer.
+ * If the packet library checkheader(byte) function returns false,
+ * check to see if you have an ASCII character instead (special robot instructions)
+ * Consider that the header, 0xFC, means the byte is minimum 252.
+ * The ASCII character range is only 0-127, so there should be no ambiguity.
+ */
+BIT readstate=0;
+
 /** Functions *****************************************************************/
 
 // This gets called by puts, printf. The result is sent by sendReport()
@@ -166,7 +176,9 @@ void usbToRadioService()
 {
 
     if (!readstate) { //the idle state	
-	if (radioComRxAvailable()) { checkHeader( radioComRxReceiveByte() ); }
+	if (radioComRxAvailable()) {
+	    if ( checkHeader( radioComRxReceiveByte() ) ) { readstate=1; }
+	}
     }
 
     else { //readstate
