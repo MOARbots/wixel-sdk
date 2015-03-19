@@ -1,3 +1,6 @@
+#ifndef PACKET_H
+#define PACKET_H
+
 /*! \file packet.h
  * This library provides functions for reading the packet bitstring
  * and wrapper functions for specific data pieces.
@@ -28,3 +31,4 @@ uint16 readY(QTuple* mypacket) __reentrant;
 uint16 readX(QTuple* mypacket) __reentrant;
 uint16 readR(QTuple* mypacket) __reentrant;
 
+#endif
