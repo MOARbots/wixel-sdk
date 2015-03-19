@@ -10,7 +10,7 @@ float calculateAngle(uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
   int dY = y1 - y2;
 
   float angle = atan2f((float) dY, (float) dX) * (180.0 / 3.14159);
-  return angle;
+  return standardizeAngle(angle);
 }
 
 // Standardize a given angle to between 0 and 360
@@ -34,10 +34,13 @@ float computeTurn(float robotAngle, float pointAngle) {
   return computedAngle;
 }
 
-// TODO: Check this out to make sure correct
+// TODO: Make sure this is correct
 // Return 1 for a left turn, 0 for a right turn - should make an enum
-int turnDirection(float angle) {
-  if (standardizeAngle(angle) < 180) {
+int turnDirection(float currentAngle, float targetAngle) {
+  currentAngle = standardizeAngle(currentAngle);
+  targetAngle = standardizeAngle(targetAngle);
+
+  if (targetAngle - currentAngle <= 0) {
     return 1;
   }
 
