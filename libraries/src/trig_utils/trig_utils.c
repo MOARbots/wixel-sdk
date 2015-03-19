@@ -1,0 +1,45 @@
+#include <trig_utils.h>
+#include <math.h>
+
+// Calculate angle between two points P1 and P2
+// Consider P1 as the robot
+// Consider P2 as the waypoint
+float calculateAngle(uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
+  int dX = x2 - x1;
+  // Y based off opposite coordinate system
+  int dY = y1 - y2;
+
+  float angle = atan2f((float) dY, (float) dX) * (180.0 / 3.14159);
+  return angle;
+}
+
+// Standardize a given angle to between 0 and 360
+float standardizeAngle(float angle) {
+  while (angle < 0) {
+    angle += 360;
+  }
+
+  while (angle > 360) {
+    angle -= 360;
+  }
+
+  return angle;
+}
+
+// TODO: Make sure this is correct
+// Compute the amount the robot has to turn
+float computeTurn(float robotAngle, float pointAngle) {
+  float computedAngle = standardizeAngle(pointAngle - robotAngle);
+
+  return computedAngle;
+}
+
+// TODO: Check this out to make sure correct
+// Return 1 for a left turn, 0 for a right turn - should make an enum
+int turnDirection(float angle) {
+  if (standardizeAngle(angle) < 180) {
+    return 1;
+  }
+
+  return 0;
+}
