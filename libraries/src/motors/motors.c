@@ -38,6 +38,25 @@ void setRightPWM(uint8 val){
     T3CC1 = val;
 }
 
+void setLeftDirection(BIT val) {
+    if (val == 0) { // go forwards
+        setDigitalOutput(A1, HIGH);
+        setDigitalOutput(A2, LOW);
+    } else if (val == 1) {
+        setDigitalOutput(A1, LOW);
+        setDigitalOutput(A2, HIGH);
+    }
+}
+
+void setRightDirection(BIT val) {
+    if (val == 0) { // go forwards
+        setDigitalOutput(B1, HIGH);
+        setDigitalOutput(B2, LOW);
+    } else if (val == 1) {
+        setDigitalOutput(B1, LOW);
+        setDigitalOutput(B2, HIGH);
+    }
+}
 
 //A coast-type stop
 void StopMotors () { 
