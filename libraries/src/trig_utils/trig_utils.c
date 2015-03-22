@@ -11,8 +11,9 @@ float calculateAngle(uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
   int dY = (int) (y2 - y1);
 
   float angle = atan2f((float) dY, (float) dX) * (180.0 / 3.14159);
-  // return angle;
-  return standardizeAngle(angle);
+  //return angle;
+  return standardizeAngle(-angle); //Note negative sign, to flip output over the x axis
+  //This is because camera coordinates have Y=0 at the top of the frame, and Y=MAX at the bottom of the frame
 }
 
 // Standardize a given angle to between 0 and 360
@@ -37,9 +38,8 @@ float computeTurn(float robotAngle, float pointAngle) {
   return computedAngle;
 }
 
-// TODO: Make sure this is correct
 // Return 1 for a left turn, 0 for a right turn - should make an enum
-int turnDirection(float currentAngle, float targetAngle) {
+BIT turnDirection(float currentAngle, float targetAngle) {
   currentAngle = standardizeAngle(currentAngle);
   targetAngle = standardizeAngle(targetAngle);
 
