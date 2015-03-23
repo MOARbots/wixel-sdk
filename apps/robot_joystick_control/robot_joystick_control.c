@@ -10,6 +10,7 @@
 #include "utils.h"
 #include "reporting.h"
 #include "updaters.h"
+#include "packet.h"
 #include "services.h"
 
 int32 CODE param_baud_rate = 9600;

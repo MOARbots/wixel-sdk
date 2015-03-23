@@ -1,6 +1,8 @@
 #ifndef __RJCSERVICES_H__
 #define __RJCSERVICES_H__
 
+BIT packetState = 0;
+
 void computerLink() //runs during TETHERED mode, relays info between USB and radio
 {
     // Data
