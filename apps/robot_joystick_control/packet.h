@@ -102,8 +102,6 @@ uint8 readID(QTuple* mypacket) __reentrant
 	return read1byte(ID_START,ID_LENGTH, mypacket);
 }
 
-uint
-
 uint16 readY(QTuple* mypacket) __reentrant
 {
 	return read2byte(Y_START,Y_LENGTH, mypacket);
