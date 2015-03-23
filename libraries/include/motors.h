@@ -10,6 +10,8 @@ void setMotorsPulled();
 void enableMotors(BIT standby);
 void setLeftPWM(uint8 val);
 void setRightPWM(uint8 val);
+void setLeftDirection(BIT val);
+void setRightDirection(BIT val);
 void StopMotors ();
 void Brake();
 void Left();
