@@ -8,9 +8,9 @@
 #include <stdio.h>
 
 #include "utils.h"
+#include "reporting.h"
 #include "updaters.h"
 #include "services.h"
-#include "reporting.h"
 
 int32 CODE param_baud_rate = 9600;
 
