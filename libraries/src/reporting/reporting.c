@@ -1,3 +1,9 @@
+#include <reporting.h>
+
+uint8 XDATA report[1024];
+uint16 DATA reportLength = 0;
+uint16 DATA reportBytesSent = 0;
+
 // This gets called by puts, printf. The result is sent by sendReport()
 void putchar(char c)
 {
