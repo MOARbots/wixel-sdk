@@ -55,12 +55,14 @@ void robot() {
             left_motor_direction = CHECK_BIT(packet[3], 0);
             right_motor_direction = CHECK_BIT(packet[3], 1);
 
-            // if (left_motor_power != 0) {
-            //     setLeftPWM(left_motor_power);
-            // }
-            // if (right_motor_power != 0) {
-            //     setRightPWM(right_motor_power);
-            // }
+            if (left_motor_power != 0) {
+                setLeftPWM(left_motor_power);
+                setLeftDirection(left_motor_direction);
+            }
+            if (right_motor_power != 0) {
+                setRightPWM(right_motor_power);
+                setRightDirection(right_motor_direction);
+            }
             printf("left motor power: %u\n", left_motor_power);
             printf("right motor power: %u\n", right_motor_power);
             printf("left motor direction: %u\n", left_motor_direction);
