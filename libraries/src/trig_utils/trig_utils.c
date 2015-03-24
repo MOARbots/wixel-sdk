@@ -2,6 +2,11 @@
 #include <math.h>
 #include <float.h>
 
+//Compute the distance between two points
+float distance (uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
+    return sqrtf( powf( ((x2-x1)+(y2-y1)) ,2) );
+}
+
 // Calculate angle between two points P1 and P2
 // Consider P1 as the robot
 // Consider P2 as the waypoint
