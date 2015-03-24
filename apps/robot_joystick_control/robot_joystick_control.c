@@ -31,8 +31,6 @@ void main(void) {
     	radioComTxService();
         usbComService();
 
-        sendReportUSB();
-
     	switch (currentMode) {
 	    	case MODE_TETHERED: computerLink(); break;
 	    	case MODE_UNTETHERED: robot(); break;
