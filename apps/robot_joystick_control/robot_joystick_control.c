@@ -25,7 +25,7 @@ void main(void) {
     motorsInit();
 
     while (1) {
-    	currentMode = updateMode();
+    	currentMode = MODE_UNTETHERED; //updateMode();
     	boardService();
     	updateLEDs(); 
     	radioComTxService();

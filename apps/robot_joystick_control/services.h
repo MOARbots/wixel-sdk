@@ -2,6 +2,8 @@
 #define __RJCSERVICES_H__
 
 BIT packetState = 0;
+uint8 DATA packet[4];
+uint8 DATA recvLength = 0;
 
 void computerLink() //runs during TETHERED mode, relays info between USB and radio
 {
@@ -17,43 +19,41 @@ void computerLink() //runs during TETHERED mode, relays info between USB and rad
     }
 }
 
-void robot() {
-	uint8 mybyte; //for the incoming byte storage
-    uint8 static set_pwm = 0; //flag that we saw the set pwm symbol 'p'
-    uint8 static pwm;
-
-    while(radioComRxAvailable()){
-    	mybyte = radioComRxReceiveByte();
-
-        if (set_pwm) {
-            pwm = mybyte;
-            setLeftPWM(pwm);
-	    setRightPWM(pwm);
-            set_pwm = 0; //restore flag to default state
-            continue;
-        }
-
-    	switch(mybyte) {
-            case 0x70:
-                set_pwm = 1; //set flag to receive next input byte as PWM value
-            break;
-            case 0x77: //char 'w'
-        	Forward();	
-    		break;
-            case 0x61: //char 'a'
-        	Left();
-    		break;
-            case 0x73: //char 's'
-        	Reverse();
-    		break;
-            case 0x64: //char 'd'
-        	Right();
-    		break;
-            case 0x20: //char ' '
-        	Brake();
-    		break;
-            }
+BIT checkHeader(uint8 header) {
+    if ((header & 0xFC) == 0xFC) { //Our header is six leading bits (111111xx for the first byte) so we check against 0xFC = 11111100
+        recvLength = 0;
+        packet[0] = header;
+        return 1;
     }
+    else {return 0;}
+}
+
+void robot() {
+    if (!packetState) {
+        if (usbComRxAvailable()) {
+            if (checkHeader(usbComRxReceiveByte())) {
+                packetState = 1;
+            }
+        }
+    } else {
+        if (recvLength + 1 < 4) {
+            if (usbComRxAvailable()) {
+                packet[recvLength + 1] = usbComRxReceiveByte();
+
+                recvLength++;
+            }
+        } else {
+            packetState = 0;
+            recvLength = 0;
+            printf("packet filled!\r\n");
+            printf("l: %u\n", packet[0]);
+            printf("l: %u\n", packet[1]);
+            printf("r: %u\n", packet[2]);
+            printf("d: %u\n", packet[3]);
+        }
+    }
+    LED_RED(packetState);
+    sendReportUSB();
 }
 
 #endif
