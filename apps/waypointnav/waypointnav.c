@@ -1,4 +1,4 @@
-/* Shira's waypoint navigator 
+/* Shira's waypoint navigator
  *
  */
 
@@ -16,6 +16,7 @@
 #include <timer.h>
 #include <trig_utils.h>
 #include <math.h>
+#include <reporting.h>
 
 /** Parameters ****************************************************************/
 #define MODE_TETHERED	        0
@@ -35,24 +36,17 @@ int32 CODE param_baud_rate = 9600;
 uint8 DATA currentMode;
 
 //Store the timestamp of the last received packet
-uint32 lastpacketRobot, lastpacketTag,diff,lastprint;
+uint32 lastpacketRobot, lastpacketTag, diff, lastprint;
 
 QTuple TagRobot, TagGoal;
+QTuple tags[NUM_WAYPOINTS+1];
+
+// Array of wether each item in the 'tags' array is initialized
+uint8 initTag[NUM_WAYPOINTS+1];
 
 //print flags
 BIT pf_olddata, pf_turnL, pf_turnR, pf_success, pf_fwd;
 
-// A big buffer for holding a report.  This allows us to print more than
-// 128 bytes at a time to USB.
-uint8 XDATA report[REPORTSIZE];
-
-// The length (in bytes) of the report currently in the report buffer.
-// If zero, then there is no report in the buffer.
-uint16 DATA reportLength = 0;
-
-// The number of bytes of the current report that have already been
-// send to the computer over USB.
-uint16 DATA reportBytesSent = 0;
 
 /*Suggested use:
  * 0 means idle (no packet currently being read), 1 means a packet is
@@ -63,68 +57,9 @@ uint16 DATA reportBytesSent = 0;
  * The ASCII character range is only 0-127, so there should be no ambiguity.
  */
 BIT readstate=0;
-BIT buffer_overflow = 0; //flag to check if a buffer overflow occured
 
 /** Functions *****************************************************************/
 
-// This gets called by puts, printf. The result is sent by sendReport functions
-void putchar(char c)
-{
-    if (reportLength >= REPORTSIZE) { buffer_overflow = 1; }
-    else {
-	report[reportLength] = c;
-	reportLength++;
-	buffer_overflow = 0;
-    }
-}
-
-//This sends data over the radio
-void sendReportRadio()
-{
-    uint8 bytesToSend, i;
-    if (reportLength > 0) //Nonzero size report
-    {
-        bytesToSend = radioComTxAvailable();
-        if (bytesToSend > reportLength - reportBytesSent) //Can send full report
-        {
-            // Iterate through byte by byte, sending the data until the end of the report.
-            for (i=reportBytesSent; i < reportLength; i++  ) {
-	    	radioComTxSendByte(report[i]);
-	    }
-            reportLength = 0; //reset the length
-	    reportBytesSent = 0; //reset the progress counter
-        }
-        else //Not enough space on the buffers, send only what will fit
-        {
-	    for (i=reportBytesSent; i < (reportBytesSent+bytesToSend); i++) {
-            	radioComTxSendByte(report[i]);
-	    }
-            reportBytesSent += bytesToSend;
-        }
-    }
-}
-
-//This sends data over the USB
-void sendReportUSB()
-{
-    uint8 bytesToSend;
-    if (reportLength > 0) //Nonzero size report
-    {
-        bytesToSend = usbComTxAvailable();
-        if (bytesToSend > reportLength - reportBytesSent) //Can send full report
-        {
-            // Send the report from reportBytesSent until end of report
-            usbComTxSend(report+reportBytesSent, reportLength - reportBytesSent);
-            reportLength = 0; //reset the length
-	    reportBytesSent = 0; //reset the progress counter
-        }
-        else //Not enough space on the buffers, send only what will fit
-        {
-            usbComTxSend(report+reportBytesSent, bytesToSend);
-            reportBytesSent += bytesToSend;
-        }
-    }
-}
 
 void updateLeds()
 {
@@ -196,7 +131,7 @@ void updateMode()
 void usbToRadioService()
 {
 /*
-    if (!readstate) { //the idle state	
+    if (!readstate) { //the idle state
 	if (radioComRxAvailable()) {
 	    if ( checkHeader( radioComRxReceiveByte() ) ) { readstate=1; }
 	}
@@ -212,7 +147,7 @@ void usbToRadioService()
 	else { //We filled up one packet
 	    readstate = 0; //return to idle state next loop
 	    i=0;
-	    
+
 	    //Store or process the packet. Here we are formatting with printf, which calls putchar, then we call sendReport
 	    printf("ID: %u, ", readID(&packet));
 	    printf("Y: %u, ", readY(&packet));
@@ -226,96 +161,157 @@ void usbToRadioService()
 */
 }
 
+int knownTag(uint8 tag) {
+  uint8 cur;
+  int i;
+  printf("KNOWNTAG!\n\r");
+  for (i = 0; i < (NUM_WAYPOINTS+1); i++) {
+    cur = readID(&tags[i]);
+
+    if (cur == tag) {
+      return i;
+    }
+    if (initTag[i] == (uint8) 255) {
+      initTag[i] = 123;
+      return i;
+    }
+  }
+  return 255;
+}
+
+int counter;
+
 void robotRadioService() {
-    //packet handling
-    if (!readstate) { //the idle state	
-	if (radioComRxAvailable()) {
-	    if ( checkHeader( radioComRxReceiveByte() ) ) { readstate=1; }
-	}
+  //packet handling
+  if (!readstate) { //the idle state
+    if (radioComRxAvailable()) {
+      if ( checkHeader( radioComRxReceiveByte() ) ) {
+        readstate=1;
+      }
     }
+  }
 
-    else { //readstate
-	if ( i + 1 < QTupleSize ) { //packet not yet full
-	    if (radioComRxAvailable()) { //if byte available
-	    	packet.bytes[i+1] = radioComRxReceiveByte(); //take it off the receiving buffer
-		i = i+1;
-	    }
-	}
-	else { //We filled up one packet
-	    int iter;
-	    readstate = 0; //return to idle state next loop
-	    i=0;
-
-	    if (readID(&packet) == TARGETID) { //Target packet found
-		lastpacketTag = getMs();
-		for (iter=0; iter<5; iter++) { TagGoal.bytes[iter] = packet.bytes[iter]; }
-	    }
-	    if (readID(&packet) == ROBOTID) { //Robot packet found
-		lastpacketRobot = getMs();
-		for (iter=0; iter<5; iter++) { TagRobot.bytes[iter] = packet.bytes[iter]; }
-	    }
-	}
+  else { //readstate
+    if ( i + 1 < QTupleSize ) { //packet not yet full
+      if (radioComRxAvailable()) { //if byte available
+        packet.bytes[i+1] = radioComRxReceiveByte(); //take it off the receiving buffer
+        i = i+1;
+      }
     }
+    else { //We filled up one packet
+      int iter;
+      readstate = 0; //return to idle state next loop
+      i=0;
 
-//BIT pf_olddata, pf_turnL, pf_turnR, pf_success, pf_fwd;
+      if (readID(&packet) == ROBOTID) { //Robot packet found
+        lastpacketRobot = getMs();
+        for (iter=0; iter<5; iter++) {
+          TagRobot.bytes[iter] = packet.bytes[iter];
+        }
+      }
 
-    //robot movement handling
-    if ( ( (getMs() - lastpacketTag) > 250 ) | ( (getMs() - lastpacketRobot) > 250 ) ) { //if the packet is too old
-	Brake(); //stop
-	pf_turnL = pf_turnR = pf_success = pf_fwd = 0;
-	if (pf_olddata == 0) { //only print when we enter this state
-	    if (radioComTxAvailable()) {radioComTxSendByte('?'); pf_olddata = 1; }
-	}
+      // if (readID(&packet) != ROBOTID) { //Target packet found
+      else {
+        int tagIndex;
+        lastpacketTag = getMs();
+        tagIndex = knownTag(readID(&packet));
+        for (iter=0; iter<5; iter++) {
+          tags[0].bytes[iter] = packet.bytes[iter];
+          // TagGoal.bytes[iter] = packet.bytes[iter];
+        }
+      }
     }
-    else { //data is not too old to operate on
-	float goalAngle;
-	float diffAngle;
-	BIT turndir;
-	goalAngle = calculateAngle(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal), readY(&TagGoal)) ;
-	diffAngle = computeTurn(readR(&TagRobot),goalAngle);
-	turndir = turnDirection(readR(&TagRobot), goalAngle);
-	pf_olddata = 0; //reset the print flag for old data, so that next time we find old data we report it again
+  }
 
-	if ( fabsf(diffAngle) < 45 ) { //Within margins on angle
-	    pf_turnL = pf_turnR = pf_olddata = 0;
-	    if ( distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal), readY(&TagGoal)) < (float)50 ) { //Within margins on distance
-		Brake();
-		pf_fwd = 0;
-		if (pf_success == 0) {
-	    	    if (radioComTxAvailable()) {radioComTxSendByte('+'); pf_success = 1; }
-		}
-	    }
-	    else { //Not within margins on distance -- move forward
-		pf_success = 0;
-		Forward();
-		if (pf_fwd == 0) {
-	    	    if (radioComTxAvailable()) {radioComTxSendByte('M'); pf_fwd = 1; }
+  //BIT pf_olddata, pf_turnL, pf_turnR, pf_success, pf_fwd;
 
-		}
-	    }
-	}
-	else { //not within margins
-	    pf_olddata = pf_success = pf_fwd = 0;
-	    if (turndir == 0) { //turn left
-		pf_turnR = 0;
-		Left();
-		if (pf_turnL == 0) {
-	    	    if (radioComTxAvailable()) {radioComTxSendByte('L'); pf_turnL = 1; }
-		}
-	    }
-	    else {
-		pf_turnL = 0;
-		Right();
-		if (pf_turnR == 0) {
-	    	    if (radioComTxAvailable()) {radioComTxSendByte('R'); pf_turnR = 1; }
-		}
-	    }
-	}	    
-    } 
+  //robot movement handling
+  if ( ( (getMs() - lastpacketTag) > 250 ) | ( (getMs() - lastpacketRobot) > 250 ) ) { //if the packet is too old
+    Brake(); //stop
+    pf_turnL = pf_turnR = pf_success = pf_fwd = 0;
+    if (pf_olddata == 0) { //only print when we enter this state
+      if (radioComTxAvailable()) {
+        radioComTxSendByte('?'); pf_olddata = 1;
+      }
+    }
+  }
+
+  else { //data is not too old to operate on
+    float goalAngle;
+    float diffAngle;
+    BIT turndir;
+    goalAngle = calculateAngle(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal), readY(&TagGoal)) ;
+    diffAngle = computeTurn(readR(&TagRobot),goalAngle);
+    turndir = turnDirection(readR(&TagRobot), goalAngle);
+    pf_olddata = 0; //reset the print flag for old data, so that next time we find old data we report it again
+
+    if ( fabsf(diffAngle) < 45 ) { //Within margins on angle
+
+      pf_turnL = pf_turnR = pf_olddata = 0;
+      if ( distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal), readY(&TagGoal)) < (float)50 ) { //Within margins on distance
+        Brake();
+        pf_fwd = 0;
+        if (pf_success == 0) {
+          if (radioComTxAvailable()) {
+            radioComTxSendByte('+'); pf_success = 1;
+          }
+        }
+      }
+      else { //Not within margins on distance -- move forward
+        pf_success = 0;
+        Forward();
+        if (pf_fwd == 0) {
+          if (radioComTxAvailable()) {
+            radioComTxSendByte('M'); pf_fwd = 1;
+          }
+
+        }
+      }
+
+    }
+    else { //not within margins
+
+      pf_olddata = pf_success = pf_fwd = 0;
+      if (turndir == 0) { //turn left
+        pf_turnR = 0;
+        Left();
+        if (pf_turnL == 0) {
+          if (radioComTxAvailable()) {
+            radioComTxSendByte('L'); pf_turnL = 1;
+          }
+        }
+      }
+      else {
+        pf_turnL = 0;
+        Right();
+        if (pf_turnR == 0) {
+          if (radioComTxAvailable()) {
+            radioComTxSendByte('R'); pf_turnR = 1;
+          }
+        }
+      }
+
+    }
+  }
+
+  if (counter == 20000) {
+    int i;
+    for (i = 0; i < (NUM_WAYPOINTS + 1); i++) {
+      printf("id: %u, init: %u\n\r", readID(&tags[i]), initTag[i]);
+    }
+    printf("---------------------------\n\r");
+    counter = 0;
+  }
+
+  counter++;
+
+  sendReportRadio();
 }
 
 void main()
 {
+  int i;
+
     systemInit();
     usbInit();
     radioComRxEnforceOrdering = 0; //must be zero if we don't call radioComRxControlSignals() regularly.
@@ -327,6 +323,10 @@ void main()
 
     lastpacketTag = lastpacketRobot=0;
     pf_olddata = pf_turnL = pf_turnR = pf_success = pf_fwd = 0;
+
+    for (i = 0; i < (NUM_WAYPOINTS + 1); i++) {
+      initTag[i] = (uint8) 255;
+    }
 
     while(1)
     {
@@ -341,5 +341,6 @@ void main()
         case MODE_TETHERED:  	usbToRadioService();  break;
         case MODE_UNTETHERED: 	robotRadioService(); break;
         }
+
     }
 }
