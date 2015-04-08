@@ -4,7 +4,7 @@
 
 //Compute the distance between two points
 float distance (uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
-    return sqrtf( powf( ((x2-x1)+(y2-y1)) ,2) );
+    return sqrtf( powf( ((float)(x2-x1)+(float)(y2-y1)) ,2) );
 }
 
 // Calculate angle between two points P1 and P2
@@ -23,11 +23,11 @@ float calculateAngle(uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
 
 // Standardize a given angle to between 0 and 360
 float standardizeAngle(float angle) {
-  while (angle < 0) {
+  while (angle < -180.0) {
     angle += 360.0;
   }
 
-  while (angle > 360) {
+  while (angle > 180.0) {
     angle -= 360.0;
   }
 
@@ -43,12 +43,10 @@ float computeTurn(float robotAngle, float pointAngle) {
   return computedAngle;
 }
 
-// Return 1 for a left turn, 0 for a right turn - should make an enum
+// Return 0 for a left turn, 1 for a right turn - should make an enum
 BIT turnDirection(float currentAngle, float targetAngle) {
-  currentAngle = standardizeAngle(currentAngle);
-  targetAngle = standardizeAngle(targetAngle);
-
-  if (targetAngle - currentAngle <= 0) {
+  float diff = computeTurn(currentAngle,targetAngle);
+  if (diff <= 0) {
     return 1;
   }
 
