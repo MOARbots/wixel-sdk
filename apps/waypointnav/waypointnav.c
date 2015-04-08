@@ -23,8 +23,8 @@
 
 #define NUM_WAYPOINTS		5
 
-#define ROBOTID			15
-#define TARGETID		1
+#define ROBOTID			11
+#define TAGRADIUS		25
 
 #define REPORTSIZE		1024
 
@@ -65,6 +65,7 @@ uint16 DATA reportBytesSent = 0;
 BIT readstate=0;
 BIT buffer_overflow = 0; //flag to check if a buffer overflow occured
 BIT init_stage = 1;
+BIT ready_signal = 0;
 
 /** Functions *****************************************************************/
 
@@ -233,7 +234,10 @@ void robotRadioService() {
     //packet handling
     if (!readstate) { //the idle state	
 	if (radioComRxAvailable()) {
-	    if ( checkHeader( radioComRxReceiveByte() ) ) { readstate=1; }
+	    uint8 mybyte;
+	    mybyte = radioComRxReceiveByte();
+	    if ( checkHeader( mybyte ) ) { readstate=1; }
+	    else if ( mybyte == 0x67 ) { ready_signal = 1; }
 	}
     }
 
@@ -259,7 +263,7 @@ void robotRadioService() {
 			tagIDs[tagCount] = readID(&packet); //copy the ID to the tagIDs list
 			for (iter=0; iter<5; iter++) { TagGoal[tagCount].bytes[iter] = packet.bytes[iter]; } //copy the tag to the TagGoal array
 			tagCount++; //increment the tagCount
-			if (tagCount > 4) { init_stage = 0; tagCount = 0;} //we found all tags, end init_stage
+			if (tagCount > 4) { init_stage = 0; tagCount = 0; printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]); } //we found all tags, end init_stage
 		    }
 	    	}
 	    }
@@ -274,7 +278,7 @@ void robotRadioService() {
     }
 
     //robot movement handling
-    if ( init_stage == 1 | ( (getMs() - lastpacketRobot) > 250 ) | tagCount > (NUM_WAYPOINTS-1) ) { //if the packet is too old or we're not done with init stage or we've covered all points
+    if ( init_stage == 1 | ( (getMs() - lastpacketRobot) > 500 | ready_signal == 0 ) | tagCount > (NUM_WAYPOINTS-1) ) { //if the packet is too old or we're not done with init stage or we've covered all points
 	Brake(); //stop
     }
     else { //we should move
@@ -286,13 +290,13 @@ void robotRadioService() {
 	turndir = turnDirection(readR(&TagRobot), goalAngle);
 
 	//if within margins on distance, success.	
-	if ( distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) < (float)25 ) { 
+	if ( distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) < (float)50 ) { 
 	    Brake();
-	    printf("Reached tag %u.\n\r",tagIDs[tagCount]);
+	    printf("Reached tag %u. \n\r",tagIDs[tagCount]);
 	    tagCount++; 
 	}
 
-	if ( fabsf(diffAngle) < 45 ) { //Within margins on angle
+	else if ( fabsf(diffAngle) < 45 ) { //Within margins on angle
 	    Forward();
 	}
 	else { //not within margins
@@ -315,8 +319,8 @@ void main()
     radioComInit();
     timer3Init(); //Timer 3 will now control the Enable A and Enable B pins on the motor driver
     motorsInit();
-    setLeftPWM(80);
-    setRightPWM(80);
+    setLeftPWM(125);
+    setRightPWM(125);
 
     for (count=0; count<5; count++){
 	tagIDs[count] = 255; //initialize all these tags to 255, which is reserved to mean 'not yet set'
