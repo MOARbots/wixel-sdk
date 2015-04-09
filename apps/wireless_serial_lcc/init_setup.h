@@ -1,7 +1,27 @@
 #ifndef INIT_SETUP_H
 #define INIT_SETUP_H
 
+#define MODE_TETHERED	    0
+#define MODE_UNTETHERED		1
+//
+#define SERIAL_MODE_AUTO        0
+#define SERIAL_MODE_USB_RADIO   1
+#define SERIAL_MODE_UART_RADIO  2
+#define SERIAL_MODE_USB_UART    3
+
 #define ENABLE	15
+
+// pin 
+#define A1	0
+#define A2	1
+#define B1	2
+#define B2	3
+
+int32 CODE param_baud_rate = 9600;
+
+uint8 DATA currentMode;
+
+BIT readstate = 0;
 
 void timer3Init() {
     // Start the timer in free-running mode and set the prescaler.
@@ -89,4 +109,100 @@ void Initialize() {
 }
 
 
-#endif
+/** Functions *****************************************************************/
+void updateMode() {
+  if (usbPowerPresent()) {
+    currentMode = MODE_TETHERED;       
+  } else {
+    currentMode = MODE_UNTETHERED; 
+  }
+}
+
+
+// A big buffer for holding a report.  This allows us to print more than
+// 128 bytes at a time to USB.
+uint8 XDATA report[1024];
+// The length (in bytes) of the report currently in the report buffer.
+// If zero, then there is no report in the buffer.
+uint16 DATA reportLength = 0;
+// The number of bytes of the current report that have already been
+// send to the computer over USB.
+uint16 DATA reportBytesSent = 0;
+// This gets called by puts, printf. The result is sent by sendReport()
+void putchar(char c) {
+    report[reportLength] = c;
+    reportLength++;
+}
+
+//This sends data over the USB
+void sendReportUSB() {
+    uint8 bytesToSend;
+    // Send the report to USB in chunks.
+    if (reportLength > 0) {
+        bytesToSend = usbComTxAvailable();
+        if (bytesToSend > reportLength - reportBytesSent) {
+            // Send the last part of the report.
+            usbComTxSend(report+reportBytesSent, reportLength - reportBytesSent);
+            reportLength = 0;
+        } else {
+            usbComTxSend(report+reportBytesSent, bytesToSend);
+            reportBytesSent += bytesToSend;
+        }
+    }
+}
+
+#define RO
+
+#ifdef RO
+//runs during TETHERED mode, relays info between USB and radio
+void usbToRadioService() {
+  // Data
+  while(usbComRxAvailable() && radioComTxAvailable()) {
+    radioComTxSendByte(usbComRxReceiveByte());
+  }
+  while(radioComRxAvailable() && usbComTxAvailable()) {
+    usbComTxSendByte(radioComRxReceiveByte());
+  }
+}
+
+#else
+/*
+void usbToRadioService() {
+  static int i = 0;
+  XDATA uint8 id = 0;
+  XDATA int x, y, r;
+
+  if (!readstate) { //the idle state	
+    if (radioComRxAvailable()) { checkHeader( radioComRxReceiveByte() ); }
+  }
+  else { //readstate
+    if ( i + 1 < QTupleSize ) { //packet not yet full
+      if (radioComRxAvailable()) { //if byte available
+        packet.bytes[i+1] = radioComRxReceiveByte(); //take it off the receiving buffer
+        i = i+1;
+      }
+    }
+    else { //We filled up one packet
+      readstate = 0; //return to idle state next loop
+      i=0;
+      //Store or process the packet. Here we are formatting with printf, which calls putchar, then we call sendReport
+      id = readID();
+      x = readX();
+      y = readY();
+      r = readR();
+      if (g_my_id == id) {
+        printf("ID: %u, ", id);
+        printf("Y: %u, ", y);
+        printf("X: %u, ", x);
+        printf("R: %u", r);
+        putchar('\n'); //note output won't be left aligned properly in screen or gtkterm... TODO a fix for this?
+        sendReportUSB();
+      }
+    }
+  }
+}
+*/
+//select usbToRadioService
+#endif 
+//header
+#endif 
