@@ -23,7 +23,7 @@
 
 #define NUM_WAYPOINTS		5
 
-#define ROBOTID			11
+#define ROBOTID			26
 #define TAGRADIUS		25
 
 #define REPORTSIZE		1024
@@ -183,7 +183,7 @@ void updateMode()
 {
     if (usbPowerPresent())
     {
-	currentMode = MODE_TETHERED;
+	    currentMode = MODE_TETHERED;
     }
     else
     {
@@ -285,29 +285,39 @@ void robotRadioService() {
 	float goalAngle;
 	float diffAngle;
 	BIT turndir;
+  float dist = distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount]));
+  float coneAngle = 45;
 	goalAngle = calculateAngle(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) ;
 	diffAngle = computeTurn(readR(&TagRobot),goalAngle);
 	turndir = turnDirection(readR(&TagRobot), goalAngle);
 
+  if (dist < (float) 60) {
+	    coneAngle = (float) 10 + ( (float)35 * (dist / (float) 40) );
+  }
+
 	//if within margins on distance, success.	
-	if ( distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) < (float)50 ) { 
+	if ( dist < (float) 20) {
 	    Brake();
 	    printf("Reached tag %u. \n\r",tagIDs[tagCount]);
-	    tagCount++; 
+	    tagCount++;
 	}
 
-	else if ( fabsf(diffAngle) < 45 ) { //Within margins on angle
+	else if ( fabsf(diffAngle) < coneAngle ) { //Within margins on angle
+      setLeftPWM(120);
+      setRightPWM(120);
 	    Forward();
 	}
-	else { //not within margins
+	  else { //not within margins
+      setLeftPWM(60);
+      setRightPWM(60);
 	    if (turndir == 0) { //turn left
-		Left();
+		    Left();
 	    }
 	    else {
-		Right();
+    		Right();
 	    }
-	}	    
-    } 
+    }	    
+  } 
 }
 
 void main()
@@ -321,8 +331,10 @@ void main()
     motorsInit();
     setLeftPWM(125);
     setRightPWM(125);
+    setLeftOffset(20);
+    setRightOffset(0);
 
-    for (count=0; count<5; count++){
+    for (count=0; count < NUM_WAYPOINTS; count++){
 	tagIDs[count] = 255; //initialize all these tags to 255, which is reserved to mean 'not yet set'
     }
     tagCount = 0;

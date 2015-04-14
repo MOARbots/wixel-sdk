@@ -14,6 +14,9 @@
 #define B2	3
 #define ENABLE	15
 
+uint8 offsetLeft = 0;
+uint8 offsetRight = 0;
+
 //Set the pull-down resistors
 void setMotorsPulled() {
     setDigitalOutput(A1,PULLED);
@@ -30,12 +33,22 @@ void enableMotors(BIT standby) {
 
 //Sets the left PWM (pulse width modulation) parameter
 void setLeftPWM(uint8 val){
-    T3CC0 = val;
+    T3CC0 = val + offsetLeft;
 }
 
 //Sets the right PWM (pulse width modulation) parameter
 void setRightPWM(uint8 val){
-    T3CC1 = val;
+    T3CC1 = val + offsetRight;
+}
+
+// Set the left motor offset (additive)
+void setLeftOffset(uint8 val) {
+    offsetLeft = val;
+}
+
+// Set the right motor offset (additive)
+void setRightOffset(uint8 val) {
+    offsetRight = val;
 }
 
 void setLeftDirection(BIT val) {
