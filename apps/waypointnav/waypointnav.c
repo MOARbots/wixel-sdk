@@ -1,4 +1,4 @@
-/* Shira's waypoint navigator 
+/* Shira's waypoint navigator
  *
  */
 
@@ -198,7 +198,7 @@ void updateMode()
 void usbToRadioService()
 {
 /*
-    if (!readstate) { //the idle state	
+    if (!readstate) { //the idle state
 	if (radioComRxAvailable()) {
 	    if ( checkHeader( radioComRxReceiveByte() ) ) { readstate=1; }
 	}
@@ -214,7 +214,7 @@ void usbToRadioService()
 	else { //We filled up one packet
 	    readstate = 0; //return to idle state next loop
 	    i=0;
-	    
+
 	    //Store or process the packet. Here we are formatting with printf, which calls putchar, then we call sendReport
 	    printf("ID: %u, ", readID(&packet));
 	    printf("Y: %u, ", readY(&packet));
@@ -232,7 +232,7 @@ void usbToRadioService()
 void robotRadioService() {
     sendReportRadio();
     //packet handling
-    if (!readstate) { //the idle state	
+    if (!readstate) { //the idle state
 	if (radioComRxAvailable()) {
 	    uint8 mybyte;
 	    mybyte = radioComRxReceiveByte();
@@ -295,7 +295,7 @@ void robotRadioService() {
 	    coneAngle = (float) 10 + ( (float)35 * (dist / (float) 40) );
   }
 
-	//if within margins on distance, success.	
+	//if within margins on distance, success.
 	if ( dist < (float) 20) {
 	    Brake();
 	    printf("Reached tag %u. \n\r",tagIDs[tagCount]);
@@ -303,8 +303,16 @@ void robotRadioService() {
 	}
 
 	else if ( fabsf(diffAngle) < coneAngle ) { //Within margins on angle
-      setLeftPWM(120);
-      setRightPWM(120);
+      if (dist > (float) 240) { // half the total board
+        setLeftPWM(150);
+        setRightPWM(150);
+      } else if (dist > (float) 120) { // quarter of board
+        setLeftPWM(130);
+        setRightPWM(130);
+      } else { // less than that!
+        setLeftPWM(80);
+        setRightPWM(80);
+      }
 	    Forward();
 	}
 	  else { //not within margins
@@ -316,8 +324,8 @@ void robotRadioService() {
 	    else {
     		Right();
 	    }
-    }	    
-  } 
+    }
+  }
 }
 
 void main()
