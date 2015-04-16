@@ -286,14 +286,12 @@ void robotRadioService() {
 	float diffAngle;
 	BIT turndir;
   float dist = distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount]));
-  float coneAngle = 45;
+  float coneAngle;
 	goalAngle = calculateAngle(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) ;
 	diffAngle = computeTurn(readR(&TagRobot),goalAngle);
 	turndir = turnDirection(readR(&TagRobot), goalAngle);
 
-  if (dist < (float) 60) {
-	    coneAngle = (float) 10 + ( (float)35 * (dist / (float) 40) );
-  }
+  coneAngle = (dist / (float) 10) + (float) 10;
 
 	//if within margins on distance, success.
 	if ( dist < (float) 19) { // Make sure it is counted
@@ -303,15 +301,18 @@ void robotRadioService() {
 	}
 
 	else if ( fabsf(diffAngle) < coneAngle ) { //Within margins on angle
-      if (dist > (float) 240) { // half the total board
-        setLeftPWM(150);
-        setRightPWM(150);
+      if (dist > (float) 240) { // half of the board
+        setLeftPWM(160);
+        setRightPWM(160);
       } else if (dist > (float) 120) { // quarter of board
-        setLeftPWM(130);
-        setRightPWM(130);
-      } else { // less than that!
-        setLeftPWM(80);
-        setRightPWM(80);
+        setLeftPWM(145);
+        setRightPWM(145);
+      } else if (dist > (float) 45) { // eighth of board
+        setLeftPWM(125);
+        setRightPWM(125);
+    } else { // less than that!
+        setLeftPWM(100);
+        setRightPWM(100);
       }
 	    Forward();
 	}
@@ -339,7 +340,7 @@ void main()
     motorsInit();
     setLeftPWM(125);
     setRightPWM(125);
-    setLeftOffset(20);
+    setLeftOffset(10);
     setRightOffset(0);
 
     for (count=0; count < NUM_WAYPOINTS; count++){
