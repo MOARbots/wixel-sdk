@@ -286,12 +286,12 @@ void robotRadioService() {
 	float diffAngle;
 	BIT turndir;
   float dist = distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount]));
-  float coneAngle;
+  float coneAngle = 30;
 	goalAngle = calculateAngle(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) ;
 	diffAngle = computeTurn(readR(&TagRobot),goalAngle);
 	turndir = turnDirection(readR(&TagRobot), goalAngle);
 
-  coneAngle = (dist / (float) 10) + (float) 10;
+  // coneAngle = (dist / (float) 10) + (float) 10;
 
 	//if within margins on distance, success.
 	if ( dist < (float) 19) { // Make sure it is counted
@@ -311,8 +311,8 @@ void robotRadioService() {
         setLeftPWM(125);
         setRightPWM(125);
     } else { // less than that!
-        setLeftPWM(100);
-        setRightPWM(100);
+        setLeftPWM(80);
+        setRightPWM(80);
       }
 	    Forward();
 	}
@@ -340,7 +340,7 @@ void main()
     motorsInit();
     setLeftPWM(125);
     setRightPWM(125);
-    setLeftOffset(10);
+    setLeftOffset(0);
     setRightOffset(0);
 
     for (count=0; count < NUM_WAYPOINTS; count++){
