@@ -14,6 +14,9 @@
 #define B2	3
 #define ENABLE	15
 
+uint8 offsetLeft;
+uint8 offsetRight;
+
 //Set the pull-down resistors
 void setMotorsPulled() {
     setDigitalOutput(A1,PULLED);
@@ -28,14 +31,24 @@ void enableMotors(BIT standby) {
    setDigitalOutput(ENABLE,standby); //Standby mode: Motor driver turns off when LOW, on when HIGH
 }
 
-//Sets the left PWM (pulse width modulation) parameter
-void setLeftPWM(uint8 val){
-    T3CC0 = val;
+//Sets the left PWM (pulse width modulation) parameter		 //Sets the left PWM (pulse width modulation) parameter
+void setLeftPWM(uint8 val) {
+  T3CC0 = val + offsetLeft;
 }
 
-//Sets the right PWM (pulse width modulation) parameter
-void setRightPWM(uint8 val){
-    T3CC1 = val;
+//Sets the right PWM (pulse width modulation) parameter		 //Sets the right PWM (pulse width modulation) parameter
+void setRightPWM(uint8 val) {
+  T3CC1 = val + offsetRight;
+}
+
+// Set the left motor offset (additive)
+void setLeftOffset(uint8 val) {
+  offsetLeft = val;
+}
+
+// Set the right motor offset (additive)
+void setRightOffset(uint8 val) {
+  offsetRight = val;
 }
 
 void setLeftDirection(BIT val) {
@@ -59,7 +72,7 @@ void setRightDirection(BIT val) {
 }
 
 //A coast-type stop
-void StopMotors () { 
+void StopMotors () {
     setDigitalOutput(A1,LOW);
     setDigitalOutput(A2,LOW);
     setDigitalOutput(B1,LOW);
@@ -113,4 +126,6 @@ void motorsInit() {
     enableMotors(1);
     setLeftPWM(255);
     setRightPWM(255);
+    setLeftOffset(0);
+    setRightOffset(0);
 }

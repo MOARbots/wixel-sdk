@@ -296,7 +296,7 @@ void robotRadioService() {
   }
 
 	//if within margins on distance, success.
-	if ( dist < (float) 20) {
+	if ( dist < (float) 19) { // Make sure it is counted
 	    Brake();
 	    printf("Reached tag %u. \n\r",tagIDs[tagCount]);
 	    tagCount++;
