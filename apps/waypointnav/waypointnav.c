@@ -12,10 +12,12 @@
 #include <queue.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <motors.h>
 #include <timer.h>
 #include <trig_utils.h>
 #include <math.h>
+#include <float.h>
 
 /** Parameters ****************************************************************/
 #define MODE_TETHERED	        0
@@ -32,6 +34,12 @@ int32 CODE param_baud_rate = 9600;
 
 /** Global Variables **********************************************************/
 
+typedef struct tag {
+  uint16 x;
+  uint16 y;
+  uint8 id;
+} tag;
+
 uint8 DATA currentMode;
 
 //Store the timestamp of the last received packet
@@ -39,8 +47,12 @@ uint32 lastpacketRobot, lastpacketTag,diff,lastprint;
 
 QTuple XDATA TagRobot;
 QTuple XDATA TagGoal[NUM_WAYPOINTS];
-uint8 tagIDs[5];
+uint8 tagIDs[NUM_WAYPOINTS];
 uint8 tagCount;
+
+tag XDATA original[NUM_WAYPOINTS];
+tag XDATA bestPath[NUM_WAYPOINTS];
+tag XDATA tempPath[NUM_WAYPOINTS];
 
 // A big buffer for holding a report.  This allows us to print more than
 // 128 bytes at a time to USB.
@@ -228,79 +240,138 @@ void usbToRadioService()
 */
 }
 
+/* Modified from Jude's code and http://www.zilogic.com/blog/tutorial-random-numbers.html */
+// Uniformly returns a number in [0, 1).
+float randomInO1() {  // rand() returns a number in 0, ..., RAND_MAX.  The 0.999999, while a bit of a hack, prevents integer division and means the max result is n-1.
+  return ((0.999999 * rand()) / RAND_MAX);
+}
+
+// Return random integer in 0, ..., n-1.
+int randRange(int n) {
+  return (int) (randomInO1() * n);
+}
+/* End Jude's code */
+
 //keep in mind i is a counter used here and declared in packet.c
 void robotRadioService() {
-    sendReportRadio();
-    //packet handling
-    if (!readstate) { //the idle state
-	if (radioComRxAvailable()) {
-	    uint8 mybyte;
-	    mybyte = radioComRxReceiveByte();
-	    if ( checkHeader( mybyte ) ) { readstate=1; }
-	    else if ( mybyte == 0x67 ) { ready_signal = 1; }
-	}
+  sendReportRadio();
+  //packet handling
+  if (!readstate) { //the idle state
+    if (radioComRxAvailable()) {
+      uint8 mybyte;
+      mybyte = radioComRxReceiveByte();
+      if ( checkHeader( mybyte ) ) { readstate=1; }
+      else if ( mybyte == 0x67 ) { ready_signal = 1; }
     }
-
-    else { //readstate
-	if ( i + 1 < QTupleSize ) { //packet not yet full
+  } else { //readstate
+	  if ( i + 1 < QTupleSize ) { //packet not yet full
 	    if (radioComRxAvailable()) { //if byte available
 	    	packet.bytes[i+1] = radioComRxReceiveByte(); //take it off the receiving buffer
-		i = i+1;
+		    i = i+1;
 	    }
-	}
-	else { //We filled up one packet
+	  } else { //We filled up one packet
 	    int iter;
+      int iter1;
+
+      int rand1;
+      int rand2;
+
+      uint16 dist = 0;
+      uint16 bestDist = 65535;
+
 	    readstate = 0; //return to idle state next loop
 	    i=0;
 
 	    if (init_stage == 1) { //initialization of tag locations
-		if (readID(&packet) != ROBOTID) { //a tag packet was found
-		    BIT exists=0;
-		    for ( iter=0; iter < NUM_WAYPOINTS; iter++) {
-			if (tagIDs[iter] == readID(&packet)) {exists=1;}
-		    }
-		    if (!exists) { //this tag was not yet located
-			tagIDs[tagCount] = readID(&packet); //copy the ID to the tagIDs list
-			for (iter=0; iter<5; iter++) { TagGoal[tagCount].bytes[iter] = packet.bytes[iter]; } //copy the tag to the TagGoal array
-			tagCount++; //increment the tagCount
-			if (tagCount > 4) { init_stage = 0; tagCount = 0; printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]); } //we found all tags, end init_stage
-		    }
-	    	}
-	    }
+		    if (readID(&packet) != ROBOTID) { //a tag packet was found
+		      BIT exists=0;
+		      for ( iter=0; iter < NUM_WAYPOINTS; iter++) {
+			      if (tagIDs[iter] == readID(&packet)) {exists=1;}
+	        }
+		      if (!exists) { //this tag was not yet located
+			      tagIDs[tagCount] = readID(&packet); //copy the ID to the tagIDs list
 
-	    else { //init stage is over
+            original[tagCount].x = readX(&packet);
+			      original[tagCount].y = readY(&packet);
+            original[tagCount].id = readID(&packet);
+
+            for (iter=0; iter<NUM_WAYPOINTS; iter++) { TagGoal[tagCount].bytes[iter] = packet.bytes[iter]; } //copy the tag to the TagGoal array
+			      tagCount++; //increment the tagCount
+			      if (tagCount > 4) {
+              init_stage = 0;
+              tagCount = 0;
+
+              // Print original tags
+              for (iter = 0; iter < NUM_WAYPOINTS; iter++) {
+                printf("Tag (%u): %u, %u, %u\n\r", iter, original[iter].x, original[iter].y, original[iter].id);
+              }
+
+              // Code to find the shortest path
+              for(iter = 0; iter < 250; iter++) { // Figure out shortest path
+                // Permute list
+                for (iter1 = 0; iter1 < NUM_WAYPOINTS; iter1++) {
+                  rand1 = randRange(NUM_WAYPOINTS);
+                  rand2 = randRange(NUM_WAYPOINTS);
+
+                  tempPath[rand1].x = original[rand2].x;
+                  tempPath[rand1].y = original[rand2].y;
+                  tempPath[rand1].id = original[rand2].id;
+                }
+
+                // Find distance
+                for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
+                  dist += distance(original[iter1].x, original[iter1].y, original[(iter1+1) % 4].x, original[(iter1+1) % 4].y);
+                }
+                // Compare to previous distance. If better distance, choose new distance
+                if (dist < bestDist) {
+                  bestDist = dist;
+                  for (iter1 = 0; iter1 < NUM_WAYPOINTS; iter1++) {
+                    bestPath[iter1].x = tempPath[iter1].x;
+                    bestPath[iter1].y = tempPath[iter1].y;
+                    bestPath[iter1].id = tempPath[iter1].id;
+                  }
+                }
+              }
+              // set id list to best distance
+              for (iter = 0; iter < NUM_WAYPOINTS; iter++) {
+                tagIDs[iter] = bestPath[iter].id;
+                printf("Path found (%u): %u\n\r", iter, tagIDs[iter]);
+              }
+
+              printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]);
+            } //we found all tags, end init_stage
+		      }
+	    	}
+	    } else { //init stage is over
 	    	if (readID(&packet) == ROBOTID) { //Robot packet found
-		    lastpacketRobot = getMs();
-		    for (iter=0; iter<5; iter++) { TagRobot.bytes[iter] = packet.bytes[iter]; }
+		      lastpacketRobot = getMs();
+		      for (iter=0; iter<5; iter++) { TagRobot.bytes[iter] = packet.bytes[iter]; }
 	    	}
 	    }
-	}
-    }
+	  }
+  }
 
     //robot movement handling
-    if ( init_stage == 1 | ( (getMs() - lastpacketRobot) > 500 | ready_signal == 0 ) | tagCount > (NUM_WAYPOINTS-1) ) { //if the packet is too old or we're not done with init stage or we've covered all points
-	Brake(); //stop
-    }
-    else { //we should move
-	float goalAngle;
-	float diffAngle;
-	BIT turndir;
-  float dist = distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount]));
-  float coneAngle = 30;
-	goalAngle = calculateAngle(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) ;
-	diffAngle = computeTurn(readR(&TagRobot),goalAngle);
-	turndir = turnDirection(readR(&TagRobot), goalAngle);
+  if ( init_stage == 1 | ( (getMs() - lastpacketRobot) > 500 | ready_signal == 0 ) | tagCount > (NUM_WAYPOINTS-1) ) { //if the packet is too old or we're not done with init stage or we've covered all points
+	  Brake(); //stop
+  } else { //we should move
+	  float goalAngle;
+	  float diffAngle;
+	  BIT turndir;
+    float dist = distance(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount]));
+    float coneAngle = 30;
+	  goalAngle = calculateAngle(readX(&TagRobot), readY(&TagRobot), readX(&TagGoal[tagCount]), readY(&TagGoal[tagCount])) ;
+	  diffAngle = computeTurn(readR(&TagRobot),goalAngle);
+	  turndir = turnDirection(readR(&TagRobot), goalAngle);
 
-  // coneAngle = (dist / (float) 10) + (float) 10;
+    // coneAngle = (dist / (float) 10) + (float) 10;
 
-	//if within margins on distance, success.
-	if ( dist < (float) 19) { // Make sure it is counted
-	    Brake();
-	    printf("Reached tag %u. \n\r",tagIDs[tagCount]);
-	    tagCount++;
-	}
-
-	else if ( fabsf(diffAngle) < coneAngle ) { //Within margins on angle
+	  //if within margins on distance, success.
+  	if ( dist < (float) 19) { // Make sure it is counted
+      Brake();
+      printf("Reached tag %u. \n\r",tagIDs[tagCount]);
+      tagCount++;
+  	}	else if ( fabsf(diffAngle) < coneAngle ) { //Within margins on angle
       if (dist > (float) 240) { // half of the board
         setLeftPWM(160);
         setRightPWM(160);
@@ -310,21 +381,19 @@ void robotRadioService() {
       } else if (dist > (float) 45) { // eighth of board
         setLeftPWM(125);
         setRightPWM(125);
-    } else { // less than that!
+      } else { // less than that!
         setLeftPWM(80);
         setRightPWM(80);
       }
-	    Forward();
-	}
-	  else { //not within margins
+      Forward();
+  	} else { //not within margins
       setLeftPWM(60);
       setRightPWM(60);
-	    if (turndir == 0) { //turn left
-		    Left();
-	    }
-	    else {
+      if (turndir == 0) { //turn left
+  	    Left();
+      } else {
     		Right();
-	    }
+      }
     }
   }
 }
