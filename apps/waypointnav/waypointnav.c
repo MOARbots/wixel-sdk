@@ -301,13 +301,10 @@ void robotRadioService() {
               init_stage = 0;
               tagCount = 0;
 
-              // Print original tags
-              for (iter = 0; iter < NUM_WAYPOINTS; iter++) {
-                printf("Tag (%u): %u, %u, %u\n\r", iter, original[iter].x, original[iter].y, original[iter].id);
-              }
-
               // Code to find the shortest path
               for(iter = 0; iter < 250; iter++) { // Figure out shortest path
+                dist = 0;
+
                 // Permute list
                 for (iter1 = 0; iter1 < NUM_WAYPOINTS; iter1++) {
                   rand1 = randRange(NUM_WAYPOINTS);
@@ -316,11 +313,13 @@ void robotRadioService() {
                   tempPath[rand1].x = original[rand2].x;
                   tempPath[rand1].y = original[rand2].y;
                   tempPath[rand1].id = original[rand2].id;
+
+                  printf("rand1: %u, rand2: %u\n\r", rand1, rand2);
                 }
 
                 // Find distance
                 for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
-                  dist += distance(original[iter1].x, original[iter1].y, original[(iter1+1) % 4].x, original[(iter1+1) % 4].y);
+                  dist += distance(tempPath[iter1].x, tempPath[iter1].y, tempPath[(iter1+1) % 4].x, tempPath[(iter1+1) % 4].y);
                 }
                 // Compare to previous distance. If better distance, choose new distance
                 if (dist < bestDist) {
@@ -330,12 +329,14 @@ void robotRadioService() {
                     bestPath[iter1].y = tempPath[iter1].y;
                     bestPath[iter1].id = tempPath[iter1].id;
                   }
+                  printf("New best: %u, (%u, %u, %u, %u, %u)\n\r", dist,
+                    bestPath[0].id, bestPath[1].id, bestPath[2].id, bestPath[3].id, bestPath[4].id);
                 }
               }
               // set id list to best distance
               for (iter = 0; iter < NUM_WAYPOINTS; iter++) {
                 tagIDs[iter] = bestPath[iter].id;
-                printf("Path found (%u): %u\n\r", iter, tagIDs[iter]);
+                printf("---Final Path found (%u): %u---\n\r", iter, tagIDs[iter]);
               }
 
               printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]);
