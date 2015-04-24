@@ -240,7 +240,7 @@ void usbToRadioService()
 */
 }
 
-/* Modified from Jude's code and http://www.zilogic.com/blog/tutorial-random-numbers.html */
+/* Modified from Jude's code */
 // Uniformly returns a number in [0, 1).
 float randomInO1() {  // rand() returns a number in 0, ..., RAND_MAX.  The 0.999999, while a bit of a hack, prevents integer division and means the max result is n-1.
   return ((0.999999 * rand()) / RAND_MAX);
@@ -270,14 +270,16 @@ void robotRadioService() {
 		    i = i+1;
 	    }
 	  } else { //We filled up one packet
-	    int iter;
-      int iter1;
+	    int XDATA iter;
+      int XDATA iter1;
 
-      int rand1;
-      int rand2;
+      int XDATA rand1;
+      int XDATA rand2;
 
-      uint16 dist = 0;
-      uint16 bestDist = 65535;
+      uint16 XDATA dist = 0;
+      uint16 XDATA bestDist = 65535;
+
+      tag XDATA tempTag;
 
 	    readstate = 0; //return to idle state next loop
 	    i=0;
@@ -301,26 +303,45 @@ void robotRadioService() {
               init_stage = 0;
               tagCount = 0;
 
+              srand(getMs());
+
+              printf("BEGIN NOW\n\r");
+              printf("Tags: %u, %u, %u, %u, %u\n\r", original[0].id, original[1].id, original[2].id, original[3].id, original[4].id);
               // Code to find the shortest path
               for(iter = 0; iter < 250; iter++) { // Figure out shortest path
                 dist = 0;
 
-                // Permute list
-                for (iter1 = 0; iter1 < NUM_WAYPOINTS; iter1++) {
+                // Populate tempPath
+                for (iter1 = 0; iter1 < NUM_WAYPOINTS + 2; iter1++) {
+                  tempPath[iter1].x  = original[iter1].x;
+                  tempPath[iter1].y  = original[iter1].y;
+                  tempPath[iter1].id = original[iter1].id;
+                }
+
+                // Permutate tempPath
+                for (iter1 = 0; iter1 < NUM_WAYPOINTS + 2; iter1++) {
                   rand1 = randRange(NUM_WAYPOINTS);
                   rand2 = randRange(NUM_WAYPOINTS);
 
-                  tempPath[rand1].x = original[rand2].x;
-                  tempPath[rand1].y = original[rand2].y;
-                  tempPath[rand1].id = original[rand2].id;
+                  tempTag.x  = tempPath[rand1].x;
+                  tempTag.y  = tempPath[rand1].y;
+                  tempTag.id = tempPath[rand1].id;
 
-                  printf("rand1: %u, rand2: %u\n\r", rand1, rand2);
+                  tempPath[rand1].x  = tempPath[rand2].x;
+                  tempPath[rand1].y  = tempPath[rand2].y;
+                  tempPath[rand1].id = tempPath[rand2].id;
+
+                  tempPath[rand2].x  = tempTag.x;
+                  tempPath[rand2].y  = tempTag.y;
+                  tempPath[rand2].id = tempTag.id;
                 }
 
-                // Find distance
+                // Find distance from robot to first tag, then add distance between tags
+                dist = distance(readX(&TagRobot), readY(&TagRobot), tempPath[0].x, tempPath[0].y);
                 for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
                   dist += distance(tempPath[iter1].x, tempPath[iter1].y, tempPath[(iter1+1) % 4].x, tempPath[(iter1+1) % 4].y);
                 }
+
                 // Compare to previous distance. If better distance, choose new distance
                 if (dist < bestDist) {
                   bestDist = dist;
@@ -329,15 +350,18 @@ void robotRadioService() {
                     bestPath[iter1].y = tempPath[iter1].y;
                     bestPath[iter1].id = tempPath[iter1].id;
                   }
-                  printf("New best: %u, (%u, %u, %u, %u, %u)\n\r", dist,
+                  printf("New best: %u, (%u, %u, %u, %u, %u)\n\r", bestDist,
                     bestPath[0].id, bestPath[1].id, bestPath[2].id, bestPath[3].id, bestPath[4].id);
                 }
               }
+
               // set id list to best distance
               for (iter = 0; iter < NUM_WAYPOINTS; iter++) {
                 tagIDs[iter] = bestPath[iter].id;
-                printf("---Final Path found (%u): %u---\n\r", iter, tagIDs[iter]);
               }
+
+              printf("Final Path: dist: %u, tags: %u, %u, %u, %u, %u\n\r", bestDist,
+              tagIDs[0], tagIDs[1], tagIDs[2], tagIDs[3], tagIDs[4]);
 
               printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]);
             } //we found all tags, end init_stage
