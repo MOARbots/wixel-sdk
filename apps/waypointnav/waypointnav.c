@@ -270,16 +270,16 @@ void robotRadioService() {
 		    i = i+1;
 	    }
 	  } else { //We filled up one packet
-	    int XDATA iter;
-      int XDATA iter1;
+	    int iter;
+      int iter1;
 
-      int XDATA rand1;
-      int XDATA rand2;
+      int rand1;
+      int rand2;
 
-      uint16 XDATA dist = 0;
-      uint16 XDATA bestDist = 65535;
+      uint16 dist = 0;
+      uint16 bestDist = 65535;
 
-      tag XDATA tempTag;
+      tag tempTag;
 
 	    readstate = 0; //return to idle state next loop
 	    i=0;
@@ -297,22 +297,22 @@ void robotRadioService() {
 			      original[tagCount].y = readY(&packet);
             original[tagCount].id = readID(&packet);
 
-            for (iter=0; iter<NUM_WAYPOINTS; iter++) { TagGoal[tagCount].bytes[iter] = packet.bytes[iter]; } //copy the tag to the TagGoal array
+            for (iter=0; iter<NUM_WAYPOINTS; iter++) {
+              TagGoal[tagCount].bytes[iter] = packet.bytes[iter];
+            } //copy the tag to the TagGoal array
 			      tagCount++; //increment the tagCount
-			      if (tagCount > 4) {
+			      if (tagCount > 4) { // Done with looking for tags
               init_stage = 0;
               tagCount = 0;
 
               srand(getMs());
 
-              printf("BEGIN NOW\n\r");
-              printf("Tags: %u, %u, %u, %u, %u\n\r", original[0].id, original[1].id, original[2].id, original[3].id, original[4].id);
               // Code to find the shortest path
               for(iter = 0; iter < 250; iter++) { // Figure out shortest path
                 dist = 0;
 
-                // Populate tempPath
-                for (iter1 = 0; iter1 < NUM_WAYPOINTS + 2; iter1++) {
+                // Populate tempPath with original tag locations
+                for (iter1 = 0; iter1 < NUM_WAYPOINTS; iter1++) {
                   tempPath[iter1].x  = original[iter1].x;
                   tempPath[iter1].y  = original[iter1].y;
                   tempPath[iter1].id = original[iter1].id;
@@ -339,7 +339,12 @@ void robotRadioService() {
                 // Find distance from robot to first tag, then add distance between tags
                 dist = distance(readX(&TagRobot), readY(&TagRobot), tempPath[0].x, tempPath[0].y);
                 for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
-                  dist += distance(tempPath[iter1].x, tempPath[iter1].y, tempPath[(iter1+1) % 4].x, tempPath[(iter1+1) % 4].y);
+                  dist += distance(tempPath[iter1].x, tempPath[iter1].y, tempPath[iter1+1].x, tempPath[iter1+1].y);
+                }
+
+                if (iter % 50 == 0) {
+                  printf("path (%u): %u, %u, %u, %u, %u - dist: %u\n\r", iter, tempPath[0].id,
+                    tempPath[1].id, tempPath[2].id, tempPath[3].id, tempPath[4].id, dist);
                 }
 
                 // Compare to previous distance. If better distance, choose new distance
