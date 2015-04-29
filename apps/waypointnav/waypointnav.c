@@ -25,7 +25,7 @@
 
 #define NUM_WAYPOINTS		5
 
-#define ROBOTID			26
+#define ROBOTID			15
 #define TAGRADIUS		25
 
 #define REPORTSIZE		1024
@@ -307,8 +307,10 @@ void robotRadioService() {
 
               srand(getMs());
 
+              printf("r: %u, %u\r\n", readX(&TagRobot), readY(&TagRobot));
+
               // Code to find the shortest path
-              for(iter = 0; iter < 250; iter++) { // Figure out shortest path
+              for(iter = 0; iter < 500; iter++) { // Figure out shortest path
                 dist = 0;
 
                 // Populate tempPath with original tag locations
@@ -318,7 +320,7 @@ void robotRadioService() {
                   tempPath[iter1].id = original[iter1].id;
                 }
 
-                // Permutate tempPath
+                // // Permutate tempPath
                 for (iter1 = 0; iter1 < NUM_WAYPOINTS + 2; iter1++) {
                   rand1 = randRange(NUM_WAYPOINTS);
                   rand2 = randRange(NUM_WAYPOINTS);
@@ -337,14 +339,12 @@ void robotRadioService() {
                 }
 
                 // Find distance from robot to first tag, then add distance between tags
-                dist = distance(readX(&TagRobot), readY(&TagRobot), tempPath[0].x, tempPath[0].y);
-                for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
-                  dist += distance(tempPath[iter1].x, tempPath[iter1].y, tempPath[iter1+1].x, tempPath[iter1+1].y);
-                }
+                // TODO: Change to robot tag!
+                dist = __fs2uint(distance(475, 350, tempPath[0].x, tempPath[0].y));
 
-                if (iter % 50 == 0) {
-                  printf("path (%u): %u, %u, %u, %u, %u - dist: %u\n\r", iter, tempPath[0].id,
-                    tempPath[1].id, tempPath[2].id, tempPath[3].id, tempPath[4].id, dist);
+                for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
+                  dist = dist + __fs2uint(distance(tempPath[iter1].x, tempPath[iter1].y, tempPath[iter1+1].x, tempPath[iter1+1].y));
+
                 }
 
                 // Compare to previous distance. If better distance, choose new distance
@@ -355,17 +355,18 @@ void robotRadioService() {
                     bestPath[iter1].y = tempPath[iter1].y;
                     bestPath[iter1].id = tempPath[iter1].id;
                   }
-                  printf("New best: %u, (%u, %u, %u, %u, %u)\n\r", bestDist,
-                    bestPath[0].id, bestPath[1].id, bestPath[2].id, bestPath[3].id, bestPath[4].id);
+                  // printf("New best: %u, (%u, %u, %u, %u, %u)\n\r", bestDist,
+                  //   bestPath[0].id, bestPath[1].id, bestPath[2].id, bestPath[3].id, bestPath[4].id);
                 }
+
               }
 
-              // set id list to best distance
+              // set id list to shortest distance path
               for (iter = 0; iter < NUM_WAYPOINTS; iter++) {
                 tagIDs[iter] = bestPath[iter].id;
               }
 
-              printf("Final Path: dist: %u, tags: %u, %u, %u, %u, %u\n\r", bestDist,
+              printf("\n\rFinal Path: dist: %u, tags: %u, %u, %u, %u, %u\n\r", bestDist,
               tagIDs[0], tagIDs[1], tagIDs[2], tagIDs[3], tagIDs[4]);
 
               printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]);
