@@ -338,10 +338,10 @@ void robotRadioService() {
 
                 // Find distance from robot to first tag, then add distance between tags
                 // TODO: Change to robot tag!
-                dist = distanceInt(475, 350, tempPath[0].x, tempPath[0].y));
+                dist = distanceInt(475, 350, tempPath[0].x, tempPath[0].y);
 
                 for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
-                  dist = dist + distanceInt(tempPath[iter1].x, tempPath[iter1].y, tempPath[iter1+1].x, tempPath[iter1+1].y));
+                  dist = dist + distanceInt(tempPath[iter1].x, tempPath[iter1].y, tempPath[iter1+1].x, tempPath[iter1+1].y);
                 }
 
                 // Compare to previous distance. If better distance, choose new distance
