@@ -4,7 +4,7 @@
 
 //Compute the distance between two points
 float distance (uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
-    return sqrtf( powf( ((float)(x2-x1)+(float)(y2-y1)) ,2) );
+    return sqrtf( powf( (float)(x2-x1) , 2)  + powf( (float)(y2-y1) ,2) );
 }
 
 //Compute the distance between two points
