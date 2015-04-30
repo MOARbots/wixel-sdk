@@ -7,6 +7,11 @@ float distance (uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
     return sqrtf( powf( ((float)(x2-x1)+(float)(y2-y1)) ,2) );
 }
 
+//Compute the distance between two points
+uint16 distanceInt(uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
+  return (uint16) floorf(distance(x1, y1, x2, y2));
+}
+
 // Calculate angle between two points P1 and P2
 // Consider P1 as the robot
 // Consider P2 as the waypoint
