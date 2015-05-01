@@ -4,12 +4,13 @@
 
 //Compute the distance between two points
 float distance (uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
-    return sqrtf( powf( (float)(x2-x1) , 2)  + powf( (float)(y2-y1) ,2) );
+    return sqrtf( (x2-x1)*(x2-x1)  + (y2-y1)*(y2-y1) );
 }
 
 //Compute the distance between two points
-uint16 distanceInt(uint16 x1, uint16 y1, uint16 x2, uint16 y2) {
-  return (uint16) floorf(distance(x1, y1, x2, y2));
+uint16 distanceInt(int x1, int y1, int x2, int y2) {
+  uint16 dist = (uint16) sqrtf( (x2-x1)*(x2-x1)  + (y2-y1)*(y2-y1) );
+  return dist;
 }
 
 // Calculate angle between two points P1 and P2

@@ -24,9 +24,9 @@
 #define MODE_UNTETHERED		1
 
 #define NUM_WAYPOINTS		5
-
-#define ROBOTID			15
 #define TAGRADIUS		25
+
+#define ROBOTID			26
 
 #define REPORTSIZE		1024
 
@@ -270,16 +270,16 @@ void robotRadioService() {
 		    i = i+1;
 	    }
 	  } else { //We filled up one packet
-	    int iter;
-      int iter1;
+	    int XDATA iter;
+      int XDATA iter1;
 
-      int rand1;
-      int rand2;
+      int XDATA rand1;
+      int XDATA rand2;
 
-      uint16 dist = 0;
-      uint16 bestDist = 65535;
+      uint16 XDATA dist = 0;
+      uint16 XDATA bestDist = 65535;
 
-      tag tempTag;
+      tag XDATA tempTag;
 
 	    readstate = 0; //return to idle state next loop
 	    i=0;
@@ -301,14 +301,14 @@ void robotRadioService() {
               TagGoal[tagCount].bytes[iter] = packet.bytes[iter];
             } //copy the tag to the TagGoal array
 			      tagCount++; //increment the tagCount
-			      if (tagCount > 4) { // Done with looking for tags
+			      if (tagCount > 4 && readX(&TagRobot) != 0 && readY(&TagRobot) != 0) { // Done with looking for tags
               init_stage = 0;
               tagCount = 0;
 
               srand(getMs());
 
               // Code to find the shortest path
-              for(iter = 0; iter < 500; iter++) { // Figure out shortest path
+              for(iter = 0; iter < 20; iter++) { // Figure out shortest path
                 dist = 0;
 
                 // Populate tempPath with original tag locations
@@ -337,22 +337,24 @@ void robotRadioService() {
                 }
 
                 // Find distance from robot to first tag, then add distance between tags
-                // TODO: Change to robot tag!
-                dist = distanceInt(475, 350, tempPath[0].x, tempPath[0].y);
+                dist = distanceInt((int) readX(&TagRobot), (int) readY(&TagRobot), (int) tempPath[0].x, (int) tempPath[0].y);
+                // printf("d:%u,", dist);
 
                 for (iter1 = 0; iter1 < NUM_WAYPOINTS-1; iter1++) {
-                  dist = dist + distanceInt(tempPath[iter1].x, tempPath[iter1].y, tempPath[iter1+1].x, tempPath[iter1+1].y);
+                  dist = dist + distanceInt((int) tempPath[iter1].x, (int) tempPath[iter1].y, (int) tempPath[iter1+1].x, (int) tempPath[iter1+1].y);
+                  // printf("%u,", dist);
                 }
+                // printf("\n\r");
 
                 // Compare to previous distance. If better distance, choose new distance
-                if (dist < bestDist) {
+                if (dist < bestDist && dist > 850) {
                   bestDist = dist;
                   for (iter1 = 0; iter1 < NUM_WAYPOINTS; iter1++) {
                     bestPath[iter1].x = tempPath[iter1].x;
                     bestPath[iter1].y = tempPath[iter1].y;
                     bestPath[iter1].id = tempPath[iter1].id;
                   }
-                  // printf("New best: %u, (%u, %u, %u, %u, %u)\n\r", bestDist,
+                  // printf("Best: %u, (%u, %u, %u, %u, %u)\n\r", bestDist,
                   //   bestPath[0].id, bestPath[1].id, bestPath[2].id, bestPath[3].id, bestPath[4].id);
                 }
 
@@ -363,13 +365,21 @@ void robotRadioService() {
                 tagIDs[iter] = bestPath[iter].id;
               }
 
-              printf("\n\rFinal Path: dist: %u, tags: %u, %u, %u, %u, %u\n\r", bestDist,
+              printf("\n\rFinal: %u, tags: %u, %u, %u, %u, %u\n\r", bestDist,
               tagIDs[0], tagIDs[1], tagIDs[2], tagIDs[3], tagIDs[4]);
 
-              printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]);
+              // printf("Initialization complete. Seeking tag %u \n\r",tagIDs[0]);
             } //we found all tags, end init_stage
 		      }
-	    	}
+	    	} else { // Still in init
+          if (readID(&packet) == ROBOTID) { //Robot packet found
+            lastpacketRobot = getMs();
+            for (iter=0; iter<5; iter++) {
+              TagRobot.bytes[iter] = packet.bytes[iter];
+            }
+          }
+        }
+
 	    } else { //init stage is over
 	    	if (readID(&packet) == ROBOTID) { //Robot packet found
 		      lastpacketRobot = getMs();

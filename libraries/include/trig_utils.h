@@ -5,7 +5,7 @@
 
 
 float distance(uint16 x1, uint16 y1, uint16 x2, uint16 y2);
-uint16 distanceInt(uint16 x1, uint16 y1, uint16 x2, uint16 y2);
+uint16 distanceInt(int x1, int y1, int x2, int y2);
 float calculateAngle(uint16 x1, uint16 y1, uint16 x2, uint16 y2);
 float standardizeAngle(float angle);
 float computeTurn(float robotAngle, float pointAngle);
